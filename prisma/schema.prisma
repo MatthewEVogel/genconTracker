@@ -19,8 +19,3 @@ model User {
   name      String   @unique
   createdAt DateTime @default(now())
 }
-
-model Config {
-  key   String @id
-  value String
-}
