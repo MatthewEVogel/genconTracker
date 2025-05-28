@@ -1,6 +1,12 @@
 {
+  "scripts": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "devDependencies": {
-    "prisma": "^6.8.2"
+    "@types/node": "^22.15.23",
+    "prisma": "^6.8.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2"
