@@ -2,7 +2,14 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/events": "pages/events.js",
+  "/": "pages/index.js",
   "/schedule": "pages/schedule.js",
-  "/": "pages/index.js"
+  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js",
+  "/api/user-events": "pages/api/user-events.js",
+  "/admin": "pages/admin.js",
+  "/api/schedule": "pages/api/schedule.js",
+  "/api/registration-timer": "pages/api/registration-timer.js",
+  "/api/admin/users": "pages/api/admin/users.js",
+  "/settings": "pages/settings.js",
+  "/api/admin/update-events": "pages/api/admin/update-events.js"
 }

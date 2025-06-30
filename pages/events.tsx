@@ -16,6 +16,8 @@ interface Event {
   cost?: string;
   location?: string;
   ticketsAvailable?: number;
+  isCanceled?: boolean;
+  canceledAt?: string;
 }
 
 interface Pagination {
@@ -395,10 +397,30 @@ export default function EventsPage() {
                 >
                   My Schedule
                 </button>
+                <button
+                  onClick={() => router.push('/tickets')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  Tickets
+                </button>
+                {user.isAdmin && (
+                  <button
+                    onClick={() => router.push('/admin')}
+                    className="text-purple-600 hover:text-purple-800 transition font-medium"
+                  >
+                    Admin
+                  </button>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-600">Welcome, {user.name}!</span>
+              <span className="text-gray-600">Welcome, {user.firstName} {user.lastName}!</span>
+              <button
+                onClick={() => router.push('/settings')}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                Settings
+              </button>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
@@ -620,11 +642,34 @@ export default function EventsPage() {
                 return (
                   <div
                     key={event.id}
-                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                    className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow ${
+                      event.isCanceled 
+                        ? 'bg-red-50 border-2 border-red-200' 
+                        : 'bg-white'
+                    }`}
                   >
+                    {/* Canceled Event Banner */}
+                    {event.isCanceled && (
+                      <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
+                        <div className="flex items-center">
+                          <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <span className="text-red-800 font-semibold text-sm">CANCELED</span>
+                        </div>
+                        {event.canceledAt && (
+                          <p className="text-red-700 text-xs mt-1">
+                            Canceled on {new Date(event.canceledAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Event Header */}
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h3 className={`text-lg font-semibold mb-2 ${
+                        event.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
+                      }`}>
                         {event.title}
                       </h3>
                       <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
@@ -632,7 +677,11 @@ export default function EventsPage() {
                           {event.id}
                         </span>
                         {event.eventType && (
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          <span className={`px-2 py-1 rounded ${
+                            event.isCanceled 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
                             {event.eventType}
                           </span>
                         )}
@@ -679,13 +728,22 @@ export default function EventsPage() {
                               ${event.cost}
                             </p>
                           )}
-                          {event.ticketsAvailable !== null && (
-                            <p className="text-xs text-gray-500">
-                              {event.ticketsAvailable} tickets
-                            </p>
-                          )}
                         </div>
                       </div>
+
+                      {/* Capacity Information */}
+                      {event.ticketsAvailable !== null && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                              Maximum Capacity:
+                            </span>
+                            <span className="text-sm font-semibold text-blue-600">
+                              {event.ticketsAvailable} tickets
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Short Description */}

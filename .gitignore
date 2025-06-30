@@ -5,3 +5,5 @@ node_modules
 *.sqlite
 *.db
 /generated/prisma
+/events.tsv
+/clientsecret.txt

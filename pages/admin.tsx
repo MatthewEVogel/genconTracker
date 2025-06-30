@@ -1,0 +1,427 @@
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import useUserStore from "@/store/useUserStore";
+
+interface AdminUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isAdmin: boolean;
+  createdAt: string;
+  _count: {
+    userEvents: number;
+  };
+}
+
+interface UpdateResult {
+  success: boolean;
+  message: string;
+  stats: {
+    downloaded: boolean;
+    totalEvents: number;
+    newEvents: number;
+    updatedEvents: number;
+    canceledEvents: number;
+    deletedEvents: number;
+    errors: string[];
+  };
+}
+
+export default function AdminPage() {
+  const router = useRouter();
+  const { user, logout } = useUserStore();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  
+  // Event update state
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Redirect to login if no user is logged in
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    // Redirect if user is not an admin
+    if (!user.isAdmin) {
+      router.push("/schedule");
+      return;
+    }
+
+    fetchUsers();
+  }, [user, router]);
+
+  const fetchUsers = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError("");
+      const response = await fetch(`/api/admin/users?adminUserId=${user.id}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch users');
+      }
+      
+      setUsers(data.users);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userToDelete: AdminUser) => {
+    if (!user) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${userToDelete.firstName} ${userToDelete.lastName} (${userToDelete.email})?\n\nThis will permanently delete their account and all associated events. This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      setDeleteLoading(userToDelete.id);
+      setError("");
+      
+      const response = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminUserId: user.id,
+          userIdToDelete: userToDelete.id
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete user');
+      }
+      
+      // Remove user from local state
+      setUsers(users.filter(u => u.id !== userToDelete.id));
+      
+      alert(`Successfully deleted user: ${data.deletedUser.firstName} ${data.deletedUser.lastName}`);
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  const handleUpdateEvents = async () => {
+    if (!confirm('This will download the latest events from GenCon and update the database. This may take a few minutes. Continue?')) {
+      return;
+    }
+
+    try {
+      setUpdateLoading(true);
+      setUpdateResult(null);
+      setError("");
+
+      const response = await fetch('/api/admin/update-events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      setUpdateResult(result);
+      setLastUpdateTime(new Date().toLocaleString());
+
+      if (result.success) {
+        alert(`Events updated successfully!\n\nNew: ${result.stats.newEvents}\nUpdated: ${result.stats.updatedEvents}\nCanceled: ${result.stats.canceledEvents}\nDeleted: ${result.stats.deletedEvents}`);
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(`Failed to update events: ${errorMsg}`);
+      console.error('Error updating events:', err);
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user.isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-red-600">Access denied. Admin privileges required.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">
+                Admin Panel
+              </h1>
+              <nav className="flex space-x-4">
+                <button
+                  onClick={() => router.push('/schedule')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  My Schedule
+                </button>
+                <button
+                  onClick={() => router.push('/events')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  Browse Events
+                </button>
+                <button
+                  onClick={() => router.push('/tickets')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  Tickets
+                </button>
+              </nav>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-600">Welcome, {user.firstName} {user.lastName}! (Admin)</span>
+              <button
+                onClick={() => router.push('/settings')}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                Settings
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Event Management Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Event Management</h2>
+            <button
+              onClick={handleUpdateEvents}
+              disabled={updateLoading}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {updateLoading ? 'Updating Events...' : 'Update Events from GenCon'}
+            </button>
+          </div>
+
+          {lastUpdateTime && (
+            <div className="mb-4 text-sm text-gray-600">
+              Last update: {lastUpdateTime}
+            </div>
+          )}
+
+          {updateResult && (
+            <div className={`border rounded-lg p-4 mb-6 ${
+              updateResult.success 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <div className={`font-medium mb-2 ${
+                updateResult.success ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {updateResult.success ? 'Update Successful' : 'Update Failed'}
+              </div>
+              <div className={`text-sm mb-3 ${
+                updateResult.success ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {updateResult.message}
+              </div>
+              
+              {updateResult.success && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="font-semibold text-blue-600">{updateResult.stats.totalEvents}</div>
+                    <div className="text-gray-600">Total Events</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-green-600">{updateResult.stats.newEvents}</div>
+                    <div className="text-gray-600">New</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-yellow-600">{updateResult.stats.updatedEvents}</div>
+                    <div className="text-gray-600">Updated</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-orange-600">{updateResult.stats.canceledEvents}</div>
+                    <div className="text-gray-600">Canceled</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-red-600">{updateResult.stats.deletedEvents}</div>
+                    <div className="text-gray-600">Deleted</div>
+                  </div>
+                </div>
+              )}
+
+              {updateResult.stats.errors.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-red-800 font-medium mb-2">Errors:</div>
+                  <ul className="text-red-700 text-sm space-y-1">
+                    {updateResult.stats.errors.map((error, index) => (
+                      <li key={index} className="list-disc list-inside">{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">
+              This will download the latest events.zip file from GenCon and update the database with any changes:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-4">
+              <li>New events will be added to the database</li>
+              <li>Existing events will be updated with new information</li>
+              <li>Events no longer in the GenCon data will be marked as canceled</li>
+              <li>Canceled events with no user registrations will be deleted</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* User Management Section */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">User Management</h2>
+            <button
+              onClick={fetchUsers}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="text-red-800 font-medium">Error:</div>
+              <div className="text-red-700 text-sm">{error}</div>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-lg text-gray-600">Loading users...</div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Events
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map((userItem) => (
+                    <tr key={userItem.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {userItem.firstName} {userItem.lastName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{userItem.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          userItem.isAdmin 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {userItem.isAdmin ? 'Admin' : 'User'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {userItem._count.userEvents}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(userItem.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        {!userItem.isAdmin && userItem.id !== user.id && (
+                          <button
+                            onClick={() => handleDeleteUser(userItem)}
+                            disabled={deleteLoading === userItem.id}
+                            className="text-red-600 hover:text-red-900 transition disabled:opacity-50"
+                          >
+                            {deleteLoading === userItem.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        )}
+                        {userItem.isAdmin && (
+                          <span className="text-gray-400">Protected</span>
+                        )}
+                        {userItem.id === user.id && !userItem.isAdmin && (
+                          <span className="text-gray-400">You</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {users.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-500 text-lg">No users found.</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

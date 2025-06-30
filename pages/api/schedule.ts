@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Transform the data for easier frontend consumption
       const scheduleData = users.map(user => ({
         id: user.id,
-        name: user.name,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
         events: user.userEvents.map(userEvent => ({
           id: userEvent.event.id,
           title: userEvent.event.title,

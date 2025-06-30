@@ -16,9 +16,19 @@ generator client {
 
 model User {
   id        String   @id @default(uuid())
-  name      String   @unique
+  firstName String
+  lastName  String
+  email     String   @unique
+  isAdmin   Boolean  @default(false)
+  
+  // OAuth fields
+  googleId  String?  @unique
+  provider  String   @default("manual") // "manual" or "google"
+  image     String?  // Profile picture URL
+  
   createdAt DateTime @default(now())
   userEvents UserEvent[]
+  ticketAssignments TicketAssignment[]
 }
 
 model Event {
@@ -36,8 +46,13 @@ model Event {
   cost              String?
   location          String?
   ticketsAvailable  Int?
+  priority          Int      @default(1) // 1=Normal, 2=Important, 3=Critical
+  isCanceled        Boolean  @default(false)
+  canceledAt        DateTime?
+  lastUpdated       DateTime @default(now()) @updatedAt
   createdAt         DateTime @default(now())
   userEvents        UserEvent[]
+  ticketAssignments TicketAssignment[]
 }
 
 model UserEvent {
@@ -45,9 +60,47 @@ model UserEvent {
   userId    String
   eventId   String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
   @@unique([userId, eventId])
+}
+
+model TicketAssignment {
+  id              String   @id @default(uuid())
+  userId          String
+  eventId         String
+  calculationId   String
+  buyingFor       String   // JSON string of user names array
+  priority        Int
+  cost            String
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  calculation     CalculationRun @relation(fields: [calculationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, eventId, calculationId])
+}
+
+model CalculationRun {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  totalUsers      Int
+  totalEvents     Int
+  errors          String   // JSON string of error messages array
+  
+  assignments     TicketAssignment[]
+}
+
+model RegistrationTimer {
+  id              String   @id @default(uuid())
+  registrationDate DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String   // User ID of admin who set it
+  
+  @@map("registration_timer")
 }

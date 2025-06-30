@@ -1,7 +1,9 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 import useUserStore from "@/store/useUserStore";
 import Timeline from "@/components/Timeline";
+import CountdownTimer from "@/components/CountdownTimer";
 
 interface Event {
   id: string;
@@ -36,6 +38,12 @@ export default function SchedulePage() {
     conflicts: any[];
     capacityWarning: boolean;
   }>({ show: false, eventId: '', conflicts: [], capacityWarning: false });
+  const [registrationTimer, setRegistrationTimer] = useState<{
+    id: string;
+    registrationDate: string;
+  } | null>(null);
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [newTimerDate, setNewTimerDate] = useState('');
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -46,6 +54,7 @@ export default function SchedulePage() {
 
     fetchScheduleData();
     fetchUserEvents();
+    fetchRegistrationTimer();
   }, [user, router]);
 
   const fetchScheduleData = async () => {
@@ -155,9 +164,70 @@ export default function SchedulePage() {
     await fetchUserEvents();
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const fetchRegistrationTimer = async () => {
+    try {
+      const response = await fetch('/api/registration-timer');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch registration timer');
+      }
+      
+      setRegistrationTimer(data.timer);
+    } catch (err) {
+      console.error('Error fetching registration timer:', err);
+      // Don't show error for missing timer, it's optional
+    }
+  };
+
+  const handleSetTimer = async () => {
+    if (!user || !user.isAdmin || !newTimerDate) return;
+
+    try {
+      const method = registrationTimer ? 'PUT' : 'POST';
+      const body = registrationTimer 
+        ? { id: registrationTimer.id, registrationDate: newTimerDate, userId: user.id }
+        : { registrationDate: newTimerDate, userId: user.id };
+
+      const response = await fetch('/api/registration-timer', {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set registration timer');
+      }
+
+      setRegistrationTimer(data.timer);
+      setShowTimerModal(false);
+      setNewTimerDate('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Clear Zustand store
+      logout();
+      
+      // Sign out from NextAuth if using Google OAuth
+      if (user?.provider === 'google') {
+        await signOut({ redirect: false });
+      }
+      
+      // Redirect to login
+      router.push("/");
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still redirect even if there's an error
+      router.push("/");
+    }
   };
 
   if (!user) {
@@ -185,10 +255,30 @@ export default function SchedulePage() {
                 >
                   Browse Events
                 </button>
+                <button
+                  onClick={() => router.push('/tickets')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  Tickets
+                </button>
+                {user.isAdmin && (
+                  <button
+                    onClick={() => router.push('/admin')}
+                    className="text-purple-600 hover:text-purple-800 transition font-medium"
+                  >
+                    Admin
+                  </button>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-600">Welcome, {user.name}!</span>
+              <span className="text-gray-600">Welcome, {user.firstName} {user.lastName}!</span>
+              <button
+                onClick={() => router.push('/settings')}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                Settings
+              </button>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
@@ -205,6 +295,33 @@ export default function SchedulePage() {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-800">Error: {error}</p>
+          </div>
+        )}
+
+        {/* Registration Countdown Timer */}
+        {registrationTimer && (
+          <div className="mb-6">
+            <CountdownTimer 
+              targetDate={new Date(registrationTimer.registrationDate)} 
+              className="max-w-4xl mx-auto"
+            />
+          </div>
+        )}
+
+        {/* Admin Timer Controls */}
+        {user.isAdmin && (
+          <div className="mb-6 flex justify-center">
+            <button
+              onClick={() => {
+                setShowTimerModal(true);
+                if (registrationTimer) {
+                  setNewTimerDate(new Date(registrationTimer.registrationDate).toISOString().slice(0, 16));
+                }
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
+            >
+              {registrationTimer ? 'Update Registration Timer' : 'Set Registration Timer'}
+            </button>
           </div>
         )}
 
@@ -236,7 +353,7 @@ export default function SchedulePage() {
         ) : (
           <Timeline
             scheduleData={scheduleData}
-            currentUser={user}
+            currentUser={{ id: user.id, name: `${user.firstName} ${user.lastName}` }}
             selectedDay={selectedDay}
             onAddEvent={handleAddEvent}
             onRemoveEvent={handleRemoveEvent}
@@ -299,6 +416,54 @@ export default function SchedulePage() {
               </button>
               <button
                 onClick={() => setConflictModal({ show: false, eventId: '', conflicts: [], capacityWarning: false })}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timer Setting Modal */}
+      {showTimerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-purple-600 mb-2">
+                {registrationTimer ? 'Update Registration Timer' : 'Set Registration Timer'}
+              </h3>
+              
+              <p className="text-gray-700 mb-4">
+                Set the date and time when event registration opens. This will display a countdown timer for all users.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Registration Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newTimerDate}
+                  onChange={(e) => setNewTimerDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleSetTimer}
+                disabled={!newTimerDate}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {registrationTimer ? 'Update Timer' : 'Set Timer'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTimerModal(false);
+                  setNewTimerDate('');
+                }}
                 className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
               >
                 Cancel
