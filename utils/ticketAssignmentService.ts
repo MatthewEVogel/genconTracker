@@ -35,7 +35,7 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
         userName: `${user.firstName} ${user.lastName}`,
         eventId: userEvent.event.id,
         eventTitle: userEvent.event.title,
-        priority: userEvent.priority,
+        priority: userEvent.event.priority,
         cost: userEvent.event.cost || '0'
       }))
     );

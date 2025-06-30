@@ -2,6 +2,22 @@ import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { prisma } from "./prisma"
 
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+      firstName?: string
+      lastName?: string
+      isAdmin?: boolean
+      provider?: string
+    }
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -28,8 +44,8 @@ export const authOptions: NextAuthOptions = {
                   provider: "google",
                   image: user.image,
                   // Update name if it's different
-                  firstName: profile?.given_name || existingUser.firstName,
-                  lastName: profile?.family_name || existingUser.lastName,
+                  firstName: (profile as any)?.given_name || existingUser.firstName,
+                  lastName: (profile as any)?.family_name || existingUser.lastName,
                 }
               });
             }
@@ -41,8 +57,8 @@ export const authOptions: NextAuthOptions = {
               data: {
                 id: user.id,
                 email: user.email!,
-                firstName: profile?.given_name || user.name?.split(' ')[0] || 'Unknown',
-                lastName: profile?.family_name || user.name?.split(' ').slice(1).join(' ') || 'User',
+                firstName: (profile as any)?.given_name || user.name?.split(' ')[0] || 'Unknown',
+                lastName: (profile as any)?.family_name || user.name?.split(' ').slice(1).join(' ') || 'User',
                 googleId: user.id,
                 provider: "google",
                 image: user.image,
