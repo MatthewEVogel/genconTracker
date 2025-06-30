@@ -142,3 +142,5 @@ Thumbs.db
 # Test files
 coverage/
 .nyc_output/
+.vercel
+.env*.local

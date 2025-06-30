@@ -1,5 +1,7 @@
 # Vercel Deployment Guide for GenCon Tracker
 
+<!-- Database tables created successfully! -->
+
 ## Prerequisites
 Your application is now configured for PostgreSQL instead of SQLite to work with Vercel's serverless environment.
 

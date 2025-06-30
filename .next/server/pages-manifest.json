@@ -2,7 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/admin": "pages/admin.js",
   "/schedule": "pages/schedule.js",
-  "/settings": "pages/settings.js"
+  "/settings": "pages/settings.js",
+  "/admin": "pages/admin.js"
 }
