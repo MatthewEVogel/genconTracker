@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "prisma generate && prisma migrate deploy",
+    "postbuild": "prisma generate",
     "start": "next start",
     "lint": "next lint",
     "seed": "ts-node prisma/seed.ts",
