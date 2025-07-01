@@ -32,7 +32,7 @@ Your notification system is now ready to send real emails and SMS messages! You 
 
 ### Step 3: Verify Sender Email
 1. Go to **Settings** → **Sender Authentication**
-2. Click **"Verify a Single Sender"**
+2. Click **"Verify a Single Sender"** // 
 3. Fill out the form with your email (this will be the "from" address)
 4. Check your email and click the verification link
 
