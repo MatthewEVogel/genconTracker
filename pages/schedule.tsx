@@ -195,6 +195,8 @@ export default function SchedulePage() {
     if (!user || !user.isAdmin || !newTimerDate) return;
 
     try {
+      // Send the datetime-local value directly to the server
+      // The server will handle it as a local time string
       const method = registrationTimer ? 'PUT' : 'POST';
       const body = registrationTimer 
         ? { id: registrationTimer.id, registrationDate: newTimerDate, userId: user.id }

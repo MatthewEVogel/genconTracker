@@ -38,8 +38,17 @@ export default async function handler(
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      // Validate date format
-      const parsedDate = new Date(registrationDate);
+      // Handle datetime-local format (YYYY-MM-DDTHH:MM)
+      // Treat as local time, not UTC
+      let parsedDate: Date;
+      if (registrationDate.includes('T') && !registrationDate.includes('Z')) {
+        // This is a datetime-local format, treat as local time
+        parsedDate = new Date(registrationDate);
+      } else {
+        // This is already an ISO string
+        parsedDate = new Date(registrationDate);
+      }
+      
       if (isNaN(parsedDate.getTime())) {
         return res.status(400).json({ error: 'Invalid date format' });
       }
