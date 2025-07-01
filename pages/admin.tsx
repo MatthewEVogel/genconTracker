@@ -229,6 +229,45 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Notification Management Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Notification Management</h2>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/admin/send-notifications', { method: 'POST' });
+                  const result = await response.json();
+                  if (result.sent) {
+                    alert(`Notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
+                  } else {
+                    alert(result.reason || result.message || 'No notifications sent');
+                  }
+                } catch (error) {
+                  alert('Error sending notifications: ' + error);
+                }
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
+            >
+              Test Registration Reminders
+            </button>
+          </div>
+          
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">
+              Test the registration reminder system. This will check if any reminders should be sent based on the current registration timer:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-4">
+              <li>1 day before registration opens</li>
+              <li>6 hours before registration opens</li>
+              <li>30 minutes before registration opens</li>
+            </ul>
+            <p className="mt-2 text-xs text-gray-500">
+              Note: In development, notifications are logged to the console. In production, they would be sent via email/SMS services.
+            </p>
+          </div>
+        </div>
+
         {/* Event Management Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
