@@ -213,19 +213,22 @@ export default function SchedulePage() {
 
   const handleLogout = async () => {
     try {
-      // Clear Zustand store
-      logout();
-      
-      // Sign out from NextAuth if using Google OAuth
+      // Sign out from NextAuth first if using Google OAuth
       if (user?.provider === 'google') {
         await signOut({ redirect: false });
       }
       
-      // Redirect to login
-      router.push("/");
+      // Clear Zustand store after NextAuth signout
+      logout();
+      
+      // Small delay to ensure cleanup is complete
+      setTimeout(() => {
+        router.push("/");
+      }, 100);
     } catch (error) {
       console.error('Error during logout:', error);
-      // Still redirect even if there's an error
+      // Clear store and redirect even if there's an error
+      logout();
       router.push("/");
     }
   };
