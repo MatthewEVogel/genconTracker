@@ -1,3 +1,4 @@
+// pages/api/registrationTimer.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
 
@@ -5,42 +6,64 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Helper: parse a "YYYY-MM-DDTHH:MM" local string + offset → proper UTC Date
+  function parseLocalDate(
+    dateTimeLocal: string,
+    tzOffsetMinutes: number
+  ): Date {
+    const [datePart, timePart] = dateTimeLocal.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+
+    // Build UTC epoch: local time + offset → UTC
+    const utcMillis =
+      Date.UTC(year, month - 1, day, hour, minute) +
+      tzOffsetMinutes * 60_000;
+    return new Date(utcMillis);
+  }
+
   if (req.method === 'GET') {
     try {
       const timer = await prisma.registrationTimer.findFirst({
         orderBy: { createdAt: 'desc' }
       });
-
-      res.status(200).json({ timer });
-    } catch (error) {
-      console.error('Error fetching registration timer:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(200).json({ timer });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  } else if (req.method === 'POST') {
+  }
+
+  // POST = create
+  if (req.method === 'POST') {
     try {
-      const { registrationDate, userId } = req.body;
+      const { registrationDate, userId, timezoneOffsetMinutes } = req.body;
 
       if (!registrationDate) {
         return res.status(400).json({ error: 'Registration date is required' });
       }
-      if (!userId) {
+      if (typeof userId !== 'string') {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
-
-      if (!user || !user.isAdmin) {
+      if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      // Manually parse datetime-local string to local Date
       let parsedDate: Date;
-      if (registrationDate.includes('T') && !registrationDate.includes('Z')) {
-        const [datePart, timePart] = registrationDate.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour, minute] = timePart.split(':').map(Number);
-        parsedDate = new Date(year, month - 1, day, hour, minute);
+      if (
+        registrationDate.includes('T') &&
+        !registrationDate.toUpperCase().includes('Z')
+      ) {
+        if (typeof timezoneOffsetMinutes !== 'number') {
+          return res
+            .status(400)
+            .json({ error: 'timezoneOffsetMinutes is required for datetime-local' });
+        }
+        parsedDate = parseLocalDate(registrationDate, timezoneOffsetMinutes);
       } else {
+        // ISO string (with Z) → just parse
         parsedDate = new Date(registrationDate);
       }
 
@@ -55,38 +78,43 @@ export default async function handler(
         }
       });
 
-      res.status(200).json({ timer });
-    } catch (error) {
-      console.error('Error creating registration timer:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(200).json({ timer });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  } else if (req.method === 'PUT') {
-    try {
-      const { id, registrationDate, userId } = req.body;
+  }
 
+  // PUT = update
+  if (req.method === 'PUT') {
+    try {
+      const { id, registrationDate, userId, timezoneOffsetMinutes } = req.body;
       if (!id) {
         return res.status(400).json({ error: 'Timer ID is required' });
       }
       if (!registrationDate) {
         return res.status(400).json({ error: 'Registration date is required' });
       }
-      if (!userId) {
+      if (typeof userId !== 'string') {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
-
-      if (!user || !user.isAdmin) {
+      if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      // Manually parse datetime-local string to local Date
       let parsedDate: Date;
-      if (registrationDate.includes('T') && !registrationDate.includes('Z')) {
-        const [datePart, timePart] = registrationDate.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour, minute] = timePart.split(':').map(Number);
-        parsedDate = new Date(year, month - 1, day, hour, minute);
+      if (
+        registrationDate.includes('T') &&
+        !registrationDate.toUpperCase().includes('Z')
+      ) {
+        if (typeof timezoneOffsetMinutes !== 'number') {
+          return res
+            .status(400)
+            .json({ error: 'timezoneOffsetMinutes is required for datetime-local' });
+        }
+        parsedDate = parseLocalDate(registrationDate, timezoneOffsetMinutes);
       } else {
         parsedDate = new Date(registrationDate);
       }
@@ -102,48 +130,44 @@ export default async function handler(
           createdBy: userId
         }
       });
-
-      res.status(200).json({ timer });
+      return res.status(200).json({ timer });
     } catch (error: any) {
-      console.error('Error updating registration timer:', error);
+      console.error(error);
       if (error.code === 'P2025') {
-        res.status(404).json({ error: 'Timer not found' });
-      } else {
-        res.status(500).json({ error: 'Internal server error' });
+        return res.status(404).json({ error: 'Timer not found' });
       }
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  } else if (req.method === 'DELETE') {
+  }
+
+  // DELETE
+  if (req.method === 'DELETE') {
     try {
       const { id, userId } = req.body;
-
       if (!id) {
         return res.status(400).json({ error: 'Timer ID is required' });
       }
-      if (!userId) {
+      if (typeof userId !== 'string') {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
-
-      if (!user || !user.isAdmin) {
+      if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      await prisma.registrationTimer.delete({
-        where: { id }
-      });
-
-      res.status(200).json({ message: 'Timer deleted successfully' });
+      await prisma.registrationTimer.delete({ where: { id } });
+      return res.status(200).json({ message: 'Timer deleted successfully' });
     } catch (error: any) {
-      console.error('Error deleting registration timer:', error);
+      console.error(error);
       if (error.code === 'P2025') {
-        res.status(404).json({ error: 'Timer not found' });
-      } else {
-        res.status(500).json({ error: 'Internal server error' });
+        return res.status(404).json({ error: 'Timer not found' });
       }
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-    res.status(405).json({ error: `Method ${req.method} not allowed` });
   }
+
+  // Method not allowed
+  res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
+  res.status(405).json({ error: `Method ${req.method} not allowed` });
 }
