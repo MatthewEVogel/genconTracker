@@ -212,6 +212,10 @@ export default function SchedulePage() {
             timezoneOffsetMinutes,             // Include timezone offset
           };
 
+      // Debug: Log the payload being sent
+      console.log('Sending payload:', body);
+      console.log('timezoneOffsetMinutes:', timezoneOffsetMinutes);
+
       const response = await fetch('/api/registration-timer', {
         method,
         headers: { 'Content-Type': 'application/json' },

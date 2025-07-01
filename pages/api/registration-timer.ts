@@ -39,6 +39,10 @@ export default async function handler(
     try {
       const { registrationDate, userId, timezoneOffsetMinutes } = req.body;
 
+      // Debug: Log what we received
+      console.log('Server received body:', req.body);
+      console.log('timezoneOffsetMinutes received:', timezoneOffsetMinutes, typeof timezoneOffsetMinutes);
+
       if (!registrationDate) {
         return res.status(400).json({ error: 'Registration date is required' });
       }
