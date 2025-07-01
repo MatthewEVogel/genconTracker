@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { checkAndSendRegistrationReminders } from '@/utils/notificationService';
+import { checkAndSendRegistrationReminders, sendTestNotifications } from '@/utils/notificationService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -29,8 +29,17 @@ export default async function handler(
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Check and send registration reminders
-    const result = await checkAndSendRegistrationReminders();
+    // Check if this is a test request
+    const { test } = req.body;
+    
+    let result;
+    if (test) {
+      // Send test notifications immediately
+      result = await sendTestNotifications();
+    } else {
+      // Check and send registration reminders based on timing
+      result = await checkAndSendRegistrationReminders();
+    }
 
     if (!result.success) {
       return res.status(400).json({ 
@@ -39,7 +48,7 @@ export default async function handler(
     }
 
     res.status(200).json({
-      message: 'Notification check completed',
+      message: test ? 'Test notifications sent' : 'Notification check completed',
       ...result
     });
 

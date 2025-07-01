@@ -233,24 +233,48 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Notification Management</h2>
-            <button
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/admin/send-notifications', { method: 'POST' });
-                  const result = await response.json();
-                  if (result.sent) {
-                    alert(`Notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
-                  } else {
-                    alert(result.reason || result.message || 'No notifications sent');
+            <div className="space-x-3">
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/admin/send-notifications', { 
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ test: true })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      alert(`Test notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
+                    } else {
+                      alert(result.message || result.error || 'Failed to send test notifications');
+                    }
+                  } catch (error) {
+                    alert('Error sending test notifications: ' + error);
                   }
-                } catch (error) {
-                  alert('Error sending notifications: ' + error);
-                }
-              }}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
-            >
-              Test Registration Reminders
-            </button>
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+              >
+                Send Test Notifications
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/admin/send-notifications', { method: 'POST' });
+                    const result = await response.json();
+                    if (result.sent) {
+                      alert(`Notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
+                    } else {
+                      alert(result.reason || result.message || 'No notifications sent');
+                    }
+                  } catch (error) {
+                    alert('Error sending notifications: ' + error);
+                  }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
+              >
+                Test Registration Reminders
+              </button>
+            </div>
           </div>
           
           <div className="text-sm text-gray-600">

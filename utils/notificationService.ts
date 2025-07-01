@@ -189,6 +189,90 @@ async function sendTextNotification(user: any, data: NotificationData) {
   return true;
 }
 
+export async function sendTestNotifications() {
+  try {
+    // Get all users with notifications enabled
+    const usersWithNotifications = await prisma.user.findMany({
+      where: {
+        OR: [
+          { emailNotifications: true },
+          { textNotifications: true }
+        ]
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phoneNumber: true,
+        emailNotifications: true,
+        textNotifications: true
+      }
+    });
+
+    if (usersWithNotifications.length === 0) {
+      return { 
+        success: false, 
+        message: 'No users have notifications enabled' 
+      };
+    }
+
+    const testNotificationData: NotificationData = {
+      type: 'registration_reminder',
+      timeUntilRegistration: 'TEST',
+      registrationDate: new Date().toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      }),
+      message: 'This is a test notification from GenCon Tracker! Your notification system is working correctly.'
+    };
+
+    const results = {
+      emailsSent: 0,
+      textsSent: 0,
+      errors: [] as string[]
+    };
+
+    // Send test notifications to each user
+    for (const user of usersWithNotifications) {
+      try {
+        // Send email notification
+        if (user.emailNotifications && user.email) {
+          await sendEmailNotification(user, testNotificationData);
+          results.emailsSent++;
+        }
+
+        // Send text notification
+        if (user.textNotifications && user.phoneNumber) {
+          await sendTextNotification(user, testNotificationData);
+          results.textsSent++;
+        }
+      } catch (error) {
+        console.error(`Failed to send test notification to user ${user.id}:`, error);
+        results.errors.push(`Failed to notify ${user.firstName} ${user.lastName}: ${error}`);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Test notifications sent',
+      usersNotified: usersWithNotifications.length,
+      ...results
+    };
+  } catch (error) {
+    console.error('Error sending test notifications:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 export async function checkAndSendRegistrationReminders() {
   try {
     // Get the current registration timer
