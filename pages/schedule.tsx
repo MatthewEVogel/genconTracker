@@ -192,45 +192,44 @@ export default function SchedulePage() {
   };
 
   const handleSetTimer = async () => {
-  if (!user || !user.isAdmin || !newTimerDate) return;
+    if (!user || !user.isAdmin || !newTimerDate) return;
 
-  try {
-    // grab the browser's offset in minutes (e.g. -240 for EDT)
-    const timezoneOffsetMinutes = new Date().getTimezoneOffset();
+    try {
+      // Get the browser's timezone offset in minutes (e.g. -240 for EDT)
+      const timezoneOffsetMinutes = new Date().getTimezoneOffset();
 
-    const method = registrationTimer ? 'PUT' : 'POST';
-    const body = registrationTimer
-      ? {
-          id: registrationTimer.id,
-          registrationDate: newTimerDate,    // "YYYY-MM-DDTHH:MM"
-          userId: user.id,
-          timezoneOffsetMinutes,             // ← include this
-        }
-      : {
-          registrationDate: newTimerDate,
-          userId: user.id,
-          timezoneOffsetMinutes,             // ← include this
-        };
+      const method = registrationTimer ? 'PUT' : 'POST';
+      const body = registrationTimer
+        ? {
+            id: registrationTimer.id,
+            registrationDate: newTimerDate,    // "YYYY-MM-DDTHH:MM"
+            userId: user.id,
+            timezoneOffsetMinutes,             // Include timezone offset
+          }
+        : {
+            registrationDate: newTimerDate,
+            userId: user.id,
+            timezoneOffsetMinutes,             // Include timezone offset
+          };
 
-    const response = await fetch('/api/registration-timer', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+      const response = await fetch('/api/registration-timer', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to set registration timer');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set registration timer');
+      }
+
+      setRegistrationTimer(data.timer);
+      setShowTimerModal(false);
+      setNewTimerDate('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
-
-    setRegistrationTimer(data.timer);
-    setShowTimerModal(false);
-    setNewTimerDate('');
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'An error occurred');
-  }
-};
-
+  };
 
   const handleLogout = async () => {
     try {
