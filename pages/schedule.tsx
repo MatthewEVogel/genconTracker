@@ -329,9 +329,15 @@ export default function SchedulePage() {
               onClick={() => {
                 setShowTimerModal(true);
                 if (registrationTimer) {
-                  // Convert the existing timer to user's local timezone for editing
+                  // Convert the existing timer to local datetime-local format
                   const existingDate = new Date(registrationTimer.registrationDate);
-                  const localDateString = new Date(existingDate.getTime() - (existingDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                  // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+                  const year = existingDate.getFullYear();
+                  const month = String(existingDate.getMonth() + 1).padStart(2, '0');
+                  const day = String(existingDate.getDate()).padStart(2, '0');
+                  const hours = String(existingDate.getHours()).padStart(2, '0');
+                  const minutes = String(existingDate.getMinutes()).padStart(2, '0');
+                  const localDateString = `${year}-${month}-${day}T${hours}:${minutes}`;
                   setNewTimerDate(localDateString);
                 }
               }}
