@@ -1,4 +1,17 @@
 import { prisma } from '@/lib/prisma';
+import sgMail from '@sendgrid/mail';
+import twilio from 'twilio';
+
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
+// Initialize Twilio
+let twilioClient: twilio.Twilio | null = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
 
 export interface NotificationData {
   type: 'registration_reminder';
@@ -107,11 +120,9 @@ export async function sendRegistrationReminders(registrationDate: Date) {
 }
 
 async function sendEmailNotification(user: any, data: NotificationData) {
-  // For now, we'll log the email that would be sent
-  // In production, you'd integrate with an email service like SendGrid, AWS SES, etc.
-  
   const emailContent = {
     to: user.email,
+    from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gencontracker.com',
     subject: `🎲 GenCon Registration Alert - ${data.timeUntilRegistration} remaining!`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -137,27 +148,43 @@ async function sendEmailNotification(user: any, data: NotificationData) {
 
   console.log('📧 EMAIL NOTIFICATION:', emailContent);
   
-  // TODO: Integrate with actual email service
-  // Example with SendGrid:
-  // await sendgrid.send(emailContent);
+  // Send email with SendGrid if API key is configured
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      await sgMail.send(emailContent);
+      console.log('✅ Email sent successfully via SendGrid');
+    } catch (error) {
+      console.error('❌ SendGrid email error:', error);
+      throw error;
+    }
+  } else {
+    console.log('⚠️ SendGrid API key not configured - email not sent');
+  }
   
   return true;
 }
 
 async function sendTextNotification(user: any, data: NotificationData) {
-  // For now, we'll log the SMS that would be sent
-  // In production, you'd integrate with an SMS service like Twilio, AWS SNS, etc.
-  
   const smsContent = {
     to: user.phoneNumber,
+    from: process.env.TWILIO_PHONE_NUMBER,
     body: `🎲 GenCon Alert: Registration opens in ${data.timeUntilRegistration}! (${data.registrationDate}) Get ready! - GenCon Tracker`
   };
 
   console.log('📱 SMS NOTIFICATION:', smsContent);
   
-  // TODO: Integrate with actual SMS service
-  // Example with Twilio:
-  // await twilio.messages.create(smsContent);
+  // Send SMS with Twilio if configured
+  if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+    try {
+      const message = await twilioClient.messages.create(smsContent);
+      console.log('✅ SMS sent successfully via Twilio:', message.sid);
+    } catch (error) {
+      console.error('❌ Twilio SMS error:', error);
+      throw error;
+    }
+  } else {
+    console.log('⚠️ Twilio not configured - SMS not sent');
+  }
   
   return true;
 }
