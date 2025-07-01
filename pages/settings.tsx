@@ -8,7 +8,10 @@ export default function Settings() {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: ''
+    email: '',
+    phoneNumber: '',
+    emailNotifications: false,
+    textNotifications: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +28,10 @@ export default function Settings() {
     setFormData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
-      email: user.email || ''
+      email: user.email || '',
+      phoneNumber: (user as any).phoneNumber || '',
+      emailNotifications: (user as any).emailNotifications || false,
+      textNotifications: (user as any).textNotifications || false
     });
   }, [user, router]);
 
@@ -225,6 +231,75 @@ export default function Settings() {
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+                  Phone Number (Optional)
+                </label>
+                <input
+                  type="tel"
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  placeholder="(555) 123-4567"
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Required for text notifications
+                </p>
+              </div>
+
+              {/* Notification Settings */}
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      id="emailNotifications"
+                      name="emailNotifications"
+                      type="checkbox"
+                      checked={formData.emailNotifications}
+                      onChange={(e) => setFormData(prev => ({ ...prev, emailNotifications: e.target.checked }))}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-900">
+                      Email notifications
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 ml-6">
+                    Receive email alerts for event updates, cancellations, and ticket assignments
+                  </p>
+
+                  <div className="flex items-center">
+                    <input
+                      id="textNotifications"
+                      name="textNotifications"
+                      type="checkbox"
+                      checked={formData.textNotifications}
+                      disabled={!formData.phoneNumber.trim()}
+                      onChange={(e) => {
+                        if (!formData.phoneNumber.trim()) {
+                          alert('Please add a phone number first to enable text notifications.');
+                          return;
+                        }
+                        setFormData(prev => ({ ...prev, textNotifications: e.target.checked }));
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <label htmlFor="textNotifications" className={`ml-2 block text-sm ${!formData.phoneNumber.trim() ? 'text-gray-400' : 'text-gray-900'}`}>
+                      Text notifications
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 ml-6">
+                    Receive SMS alerts for urgent event updates and ticket assignments
+                    {!formData.phoneNumber.trim() && (
+                      <span className="text-red-500 font-medium"> (Phone number required)</span>
+                    )}
+                  </p>
+                </div>
               </div>
 
               <div className="pt-4">
