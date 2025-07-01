@@ -18,11 +18,16 @@ export default function CountdownTimer({ targetDate, className = '' }: Countdown
 
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const target = new Date(targetDate).getTime();
-      const difference = target - now;
+      const now = new Date();
+      const target = new Date(targetDate);
+      
+      // Ensure we're comparing the exact times, not just dates
+      const nowTime = now.getTime();
+      const targetTime = target.getTime();
+      const difference = targetTime - nowTime;
 
-      if (difference > 0) {
+      // Add a small buffer (1 second) to prevent premature expiration
+      if (difference > 1000) {
         const days = Math.floor(difference / (1000 * 60 * 60 * 24));
         const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
@@ -78,6 +83,14 @@ export default function CountdownTimer({ targetDate, className = '' }: Countdown
       <p className="text-amber-700 mt-2 text-sm">
         Registration opens: {new Date(targetDate).toLocaleString()}
       </p>
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-2 text-xs text-gray-500 border-t pt-2">
+          <p>Debug Info:</p>
+          <p>Target: {new Date(targetDate).toISOString()}</p>
+          <p>Now: {new Date().toISOString()}</p>
+          <p>Difference: {new Date(targetDate).getTime() - new Date().getTime()}ms</p>
+        </div>
+      )}
     </div>
   );
 }
