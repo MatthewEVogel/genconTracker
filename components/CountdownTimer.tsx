@@ -15,16 +15,80 @@ interface TimeLeft {
 export default function CountdownTimer({ targetDate, className = '' }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isExpired, setIsExpired] = useState(false);
+  const [userTimezone, setUserTimezone] = useState<string>('America/New_York'); // Default to EDT
+  const [timezoneDetected, setTimezoneDetected] = useState(false);
+
+  // Detect user's timezone on component mount
+  useEffect(() => {
+    const detectTimezone = async () => {
+      try {
+        // First try to get timezone from browser
+        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (browserTimezone) {
+          setUserTimezone(browserTimezone);
+          setTimezoneDetected(true);
+          return;
+        }
+      } catch (error) {
+        console.log('Browser timezone detection failed:', error);
+      }
+
+      // Try geolocation as fallback
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              // Use a timezone API to get timezone from coordinates
+              const { latitude, longitude } = position.coords;
+              const response = await fetch(
+                `https://api.timezonedb.com/v2.1/get-time-zone?key=demo&format=json&by=position&lat=${latitude}&lng=${longitude}`
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.zoneName) {
+                  setUserTimezone(data.zoneName);
+                  setTimezoneDetected(true);
+                  return;
+                }
+              }
+            } catch (error) {
+              console.log('Geolocation timezone detection failed:', error);
+            }
+            
+            // If all else fails, keep EDT default
+            setTimezoneDetected(true);
+          },
+          (error) => {
+            console.log('Geolocation permission denied or failed:', error);
+            // Keep EDT default
+            setTimezoneDetected(true);
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        // Geolocation not supported, keep EDT default
+        setTimezoneDetected(true);
+      }
+    };
+
+    detectTimezone();
+  }, []);
 
   useEffect(() => {
+    if (!timezoneDetected) return; // Wait for timezone detection
+
     const calculateTimeLeft = () => {
+      // Create dates in the user's timezone
       const now = new Date();
       const target = new Date(targetDate);
       
-      // Ensure we're comparing the exact times, not just dates
-      const nowTime = now.getTime();
-      const targetTime = target.getTime();
-      const difference = targetTime - nowTime;
+      // Convert target date to user's timezone for display
+      const targetInUserTz = new Date(target.toLocaleString("en-US", { timeZone: userTimezone }));
+      const nowInUserTz = new Date(now.toLocaleString("en-US", { timeZone: userTimezone }));
+      
+      // Calculate difference using UTC timestamps to avoid timezone issues
+      const difference = target.getTime() - now.getTime();
 
       // Add a small buffer (1 second) to prevent premature expiration
       if (difference > 1000) {
@@ -48,7 +112,16 @@ export default function CountdownTimer({ targetDate, className = '' }: Countdown
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [targetDate]);
+  }, [targetDate, userTimezone, timezoneDetected]);
+
+  if (!timezoneDetected) {
+    return (
+      <div className={`text-center p-4 bg-gray-100 border border-gray-300 rounded-lg ${className}`}>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">⏰ Loading Timer...</h2>
+        <p className="text-gray-600">Detecting your timezone...</p>
+      </div>
+    );
+  }
 
   if (isExpired) {
     return (
@@ -81,13 +154,25 @@ export default function CountdownTimer({ targetDate, className = '' }: Countdown
         </div>
       </div>
       <p className="text-amber-700 mt-2 text-sm">
-        Registration opens: {new Date(targetDate).toLocaleString()}
+        Registration opens: {new Date(targetDate).toLocaleString('en-US', { 
+          timeZone: userTimezone,
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        })}
       </p>
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-2 text-xs text-gray-500 border-t pt-2">
           <p>Debug Info:</p>
-          <p>Target: {new Date(targetDate).toISOString()}</p>
-          <p>Now: {new Date().toISOString()}</p>
+          <p>Detected Timezone: {userTimezone}</p>
+          <p>Target (UTC): {new Date(targetDate).toISOString()}</p>
+          <p>Now (UTC): {new Date().toISOString()}</p>
+          <p>Target (Local): {new Date(targetDate).toLocaleString('en-US', { timeZone: userTimezone })}</p>
+          <p>Now (Local): {new Date().toLocaleString('en-US', { timeZone: userTimezone })}</p>
           <p>Difference: {new Date(targetDate).getTime() - new Date().getTime()}ms</p>
         </div>
       )}
