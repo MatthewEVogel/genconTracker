@@ -44,12 +44,23 @@ export default function SchedulePage() {
   } | null>(null);
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [newTimerDate, setNewTimerDate] = useState('');
+  const [userTimezone, setUserTimezone] = useState<string>('America/New_York');
 
   useEffect(() => {
     // Redirect to login if no user is logged in
     if (!user) {
       router.push("/");
       return;
+    }
+
+    // Detect user's timezone
+    try {
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (browserTimezone) {
+        setUserTimezone(browserTimezone);
+      }
+    } catch (error) {
+      console.log('Browser timezone detection failed, using EDT default');
     }
 
     fetchScheduleData();
@@ -318,7 +329,10 @@ export default function SchedulePage() {
               onClick={() => {
                 setShowTimerModal(true);
                 if (registrationTimer) {
-                  setNewTimerDate(new Date(registrationTimer.registrationDate).toISOString().slice(0, 16));
+                  // Convert the existing timer to user's local timezone for editing
+                  const existingDate = new Date(registrationTimer.registrationDate);
+                  const localDateString = new Date(existingDate.getTime() - (existingDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                  setNewTimerDate(localDateString);
                 }
               }}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
@@ -443,7 +457,7 @@ export default function SchedulePage() {
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Registration Date & Time
+                  Registration Date & Time ({userTimezone})
                 </label>
                 <input
                   type="datetime-local"
@@ -451,6 +465,9 @@ export default function SchedulePage() {
                   onChange={(e) => setNewTimerDate(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Time will be set in your local timezone: {userTimezone}
+                </p>
               </div>
             </div>
 
