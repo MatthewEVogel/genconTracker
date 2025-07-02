@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "prisma migrate deploy && prisma generate",
+    "postbuild": "prisma migrate resolve --applied 20250528163339_init && prisma migrate resolve --applied 20250528172649_remove_shared_password && prisma migrate resolve --applied 20250530164918_add_event_model && prisma migrate resolve --applied 20250530212931_add_user_events && prisma migrate resolve --applied 20250625180956_add_priority_to_user_events && prisma migrate resolve --applied 20250625201503_add_ticket_assignments && prisma migrate resolve --applied 20250625215323_update_user_fields && prisma migrate resolve --applied 20250626184124_add_admin_field && prisma migrate resolve --applied 20250626192116_add_oauth_fields && prisma migrate resolve --applied 20250626210706_add_registration_timer && prisma migrate resolve --applied 20250627162219_move_priority_to_events && prisma migrate resolve --applied 20250627184922_add_event_cancellation_fields && prisma migrate deploy && prisma generate",
     "start": "next start",
     "lint": "next lint",
     "seed": "ts-node prisma/seed.ts",
