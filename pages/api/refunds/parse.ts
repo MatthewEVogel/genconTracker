@@ -95,6 +95,8 @@ async function recalculateDuplicates() {
     orderBy: { createdAt: 'asc' } // Keep earliest tickets
   });
 
+  console.log('DEBUG: Total tickets found:', allTickets.length);
+
   // Group by eventId + recipient combination
   const ticketGroups = new Map<string, any[]>();
   allTickets.forEach(ticket => {
@@ -106,14 +108,22 @@ async function recalculateDuplicates() {
     ticketGroups.get(key)!.push(ticket);
   });
 
+  console.log('DEBUG: Ticket groups:', Array.from(ticketGroups.entries()).map(([key, tickets]) => ({
+    key,
+    count: tickets.length,
+    tickets: tickets.map(t => ({ id: t.id, eventId: t.eventId, recipient: t.recipient, purchaser: t.purchaser }))
+  })));
+
   // Mark duplicates for refund
   for (const [key, tickets] of ticketGroups) {
     if (tickets.length > 1) {
+      console.log(`DEBUG: Found ${tickets.length} duplicates for key: ${key}`);
       // Multiple tickets for same event+recipient combination (duplicate!)
       // Keep the first ticket (earliest), mark others for refund
       const ticketsToRefund = tickets.slice(1);
       
       for (const ticket of ticketsToRefund) {
+        console.log(`DEBUG: Marking ticket ${ticket.id} for refund (${ticket.eventId} - ${ticket.recipient})`);
         await prisma.purchasedTicket.update({
           where: { id: ticket.id },
           data: { needsRefund: true }
