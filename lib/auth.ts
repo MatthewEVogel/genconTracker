@@ -62,7 +62,10 @@ export const authOptions: NextAuthOptions = {
                 googleId: user.id,
                 provider: "google",
                 image: user.image,
-                isAdmin: isAdminAccount
+                isAdmin: isAdminAccount,
+                phoneNumber: null,
+                emailNotifications: false,
+                textNotifications: false
               }
             });
           }

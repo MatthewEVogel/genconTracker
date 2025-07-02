@@ -5,6 +5,9 @@ export interface TestUser {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber?: string;
+  emailNotifications: boolean;
+  textNotifications: boolean;
   createdAt: Date;
 }
 
@@ -66,6 +69,9 @@ export class TestDataGenerator {
         firstName,
         lastName,
         email,
+        phoneNumber: Math.random() > 0.5 ? `555-${String(Math.floor(Math.random() * 9000) + 1000)}` : undefined,
+        emailNotifications: Math.random() > 0.3, // 70% enable email notifications
+        textNotifications: Math.random() > 0.7, // 30% enable text notifications
         createdAt: new Date(),
       });
       this.userCounter++;
