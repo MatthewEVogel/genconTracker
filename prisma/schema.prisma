@@ -109,3 +109,17 @@ model RegistrationTimer {
   
   @@map("registration_timer")
 }
+
+model PurchasedTicket {
+  id          String   @id @default(uuid())
+  eventId     String   // RPG25ND272941 (first 13 chars)
+  eventName   String   // Dread: Victim's Choice
+  recipient   String   // Liv Benjamin (from ticket)
+  purchaser   String   // Matthew Vogel (logged-in user)
+  purchaseDate DateTime @default(now())
+  needsRefund Boolean  @default(false)
+  isRefunded  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([eventId])
+}

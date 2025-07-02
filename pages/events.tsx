@@ -403,6 +403,12 @@ export default function EventsPage() {
                 >
                   Tickets
                 </button>
+                <button
+                  onClick={() => router.push('/refunds')}
+                  className="text-blue-600 hover:text-blue-800 transition"
+                >
+                  Refunds
+                </button>
                 {user.isAdmin && (
                   <button
                     onClick={() => router.push('/admin')}
