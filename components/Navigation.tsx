@@ -39,7 +39,7 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
             <h1 className="text-2xl font-bold text-gray-900">
               {title}
             </h1>
-            <nav className="hidden md:flex space-x-6">
+            <nav className="flex space-x-6">
               {navItems.map((item) => (
                 <button
                   key={item.key}
