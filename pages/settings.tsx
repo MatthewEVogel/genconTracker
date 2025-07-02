@@ -29,9 +29,9 @@ export default function Settings() {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       email: user.email || '',
-      phoneNumber: (user as any).phoneNumber || '',
-      emailNotifications: (user as any).emailNotifications || false,
-      textNotifications: (user as any).textNotifications || false
+      phoneNumber: user.phoneNumber || '',
+      emailNotifications: user.emailNotifications || false,
+      textNotifications: user.textNotifications || false
     });
   }, [user, router]);
 
