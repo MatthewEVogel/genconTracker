@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import useUserStore from '@/store/useUserStore';
+import Navigation from '@/components/Navigation';
 
 interface RefundTicket {
   id: string;
@@ -126,61 +127,7 @@ export default function Refunds() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                GenCon Tracker - Refunds
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                Welcome, {userData?.firstName} {userData?.lastName}!
-              </span>
-              <button
-                onClick={() => router.push('/events')}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Browse Events
-              </button>
-              <button
-                onClick={() => router.push('/schedule')}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                My Schedule
-              </button>
-              <button
-                onClick={() => router.push('/tickets')}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Tickets
-              </button>
-              <button
-                onClick={() => router.push('/settings')}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Settings
-              </button>
-              {userData?.isAdmin && (
-                <button
-                  onClick={() => router.push('/admin')}
-                  className="text-purple-600 hover:text-purple-800 font-medium"
-                >
-                  Admin
-                </button>
-              )}
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation title="GenCon Events" currentPage="refunds" />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
