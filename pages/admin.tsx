@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
+import Navigation from "@/components/Navigation";
 
 interface AdminUser {
   id: string;
@@ -179,53 +180,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Admin Panel
-              </h1>
-              <nav className="flex space-x-4">
-                <button
-                  onClick={() => router.push('/schedule')}
-                  className="text-blue-600 hover:text-blue-800 transition"
-                >
-                  My Schedule
-                </button>
-                <button
-                  onClick={() => router.push('/events')}
-                  className="text-blue-600 hover:text-blue-800 transition"
-                >
-                  Browse Events
-                </button>
-                <button
-                  onClick={() => router.push('/tickets')}
-                  className="text-blue-600 hover:text-blue-800 transition"
-                >
-                  Tickets
-                </button>
-              </nav>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-600">Welcome, {user.firstName} {user.lastName}! (Admin)</span>
-              <button
-                onClick={() => router.push('/settings')}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
-              >
-                Settings
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navigation title="GenCon Events" currentPage="admin" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
