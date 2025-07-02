@@ -296,13 +296,36 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Event Management</h2>
-            <button
-              onClick={handleUpdateEvents}
-              disabled={updateLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50"
-            >
-              {updateLoading ? 'Updating Events...' : 'Update Events from GenCon'}
-            </button>
+            <div className="space-x-3">
+              <button
+                onClick={handleUpdateEvents}
+                disabled={updateLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {updateLoading ? 'Updating Events...' : 'Update Events from GenCon'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm('This will permanently delete ALL purchased tickets from the database. This action cannot be undone. Are you sure?')) {
+                    return;
+                  }
+                  try {
+                    const response = await fetch('/api/admin/clear-tickets', { method: 'DELETE' });
+                    const result = await response.json();
+                    if (response.ok) {
+                      alert(`Successfully deleted ${result.deletedCount} tickets`);
+                    } else {
+                      alert(result.error || 'Failed to clear tickets');
+                    }
+                  } catch (error) {
+                    alert('Error clearing tickets: ' + error);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+              >
+                Clear All Tickets
+              </button>
+            </div>
           </div>
 
           {lastUpdateTime && (
