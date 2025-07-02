@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import useUserStore from '@/store/useUserStore';
 
 export default function Settings() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { user, setUser, clearUser } = useUserStore();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -19,21 +21,25 @@ export default function Settings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !session?.user) {
       router.push('/');
       return;
     }
 
-    // Initialize form with user data
+    // Use session data if available, fallback to store data
+    const userData = session?.user || user;
+    if (!userData) return;
+
+    // Initialize form with user data (prioritize session data)
     setFormData({
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      email: user.email || '',
-      phoneNumber: user.phoneNumber || '',
-      emailNotifications: user.emailNotifications || false,
-      textNotifications: user.textNotifications || false
+      firstName: userData.firstName || '',
+      lastName: userData.lastName || '',
+      email: userData.email || '',
+      phoneNumber: userData.phoneNumber || '',
+      emailNotifications: userData.emailNotifications || false,
+      textNotifications: userData.textNotifications || false
     });
-  }, [user, router]);
+  }, [user, session, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
