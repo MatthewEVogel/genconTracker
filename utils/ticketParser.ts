@@ -40,23 +40,25 @@ export function detectDuplicateTickets(tickets: ParsedTicket[]): {
   const keepTickets: ParsedTicket[] = [];
   const refundTickets: ParsedTicket[] = [];
   
-  // Group tickets by eventId
+  // Group tickets by eventId + recipient combination
   const ticketGroups = new Map<string, ParsedTicket[]>();
   
   tickets.forEach(ticket => {
-    if (!ticketGroups.has(ticket.eventId)) {
-      ticketGroups.set(ticket.eventId, []);
+    // Create a unique key combining eventId and recipient
+    const key = `${ticket.eventId}|${ticket.recipient}`;
+    if (!ticketGroups.has(key)) {
+      ticketGroups.set(key, []);
     }
-    ticketGroups.get(ticket.eventId)!.push(ticket);
+    ticketGroups.get(key)!.push(ticket);
   });
   
   // For each group, keep the first ticket and mark others for refund
   ticketGroups.forEach(group => {
     if (group.length === 1) {
-      // Only one ticket for this event, keep it
+      // Only one ticket for this event+recipient combination, keep it
       keepTickets.push(group[0]);
     } else {
-      // Multiple tickets for same event
+      // Multiple tickets for same event+recipient combination (duplicate!)
       // Keep the first one (chronologically as they appear in the text)
       keepTickets.push(group[0]);
       // Mark the rest for refund

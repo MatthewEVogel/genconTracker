@@ -89,24 +89,27 @@ async function recalculateDuplicates() {
     data: { needsRefund: false }
   });
 
-  // Get all non-refunded tickets grouped by eventId
+  // Get all non-refunded tickets
   const allTickets = await prisma.purchasedTicket.findMany({
     where: { isRefunded: false },
     orderBy: { createdAt: 'asc' } // Keep earliest tickets
   });
 
-  // Group by eventId
+  // Group by eventId + recipient combination
   const ticketGroups = new Map<string, any[]>();
   allTickets.forEach(ticket => {
-    if (!ticketGroups.has(ticket.eventId)) {
-      ticketGroups.set(ticket.eventId, []);
+    // Create a unique key combining eventId and recipient
+    const key = `${ticket.eventId}|${ticket.recipient}`;
+    if (!ticketGroups.has(key)) {
+      ticketGroups.set(key, []);
     }
-    ticketGroups.get(ticket.eventId)!.push(ticket);
+    ticketGroups.get(key)!.push(ticket);
   });
 
   // Mark duplicates for refund
-  for (const [eventId, tickets] of ticketGroups) {
+  for (const [key, tickets] of ticketGroups) {
     if (tickets.length > 1) {
+      // Multiple tickets for same event+recipient combination (duplicate!)
       // Keep the first ticket (earliest), mark others for refund
       const ticketsToRefund = tickets.slice(1);
       
