@@ -38,23 +38,37 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (existingUser) {
-            // Update existing user with Google info if they don't have it
+            // Check if user should be admin
+            const adminEmails = ['matthewvogel1729@gmail.com', 'kencoder@gmail.com'];
+            const shouldBeAdmin = adminEmails.includes(user.email!);
+            
+            // Update existing user with Google info if they don't have it, and check admin status
+            const updateData: any = {};
+            
             if (!existingUser.googleId) {
+              updateData.googleId = user.id;
+              updateData.provider = "google";
+              updateData.image = user.image;
+              updateData.firstName = (profile as any)?.given_name || existingUser.firstName;
+              updateData.lastName = (profile as any)?.family_name || existingUser.lastName;
+            }
+            
+            // Update admin status if needed
+            if (existingUser.isAdmin !== shouldBeAdmin) {
+              updateData.isAdmin = shouldBeAdmin;
+            }
+            
+            // Only update if there are changes
+            if (Object.keys(updateData).length > 0) {
               await prisma.user.update({
                 where: { id: existingUser.id },
-                data: {
-                  googleId: user.id,
-                  provider: "google",
-                  image: user.image,
-                  // Update name if it's different
-                  firstName: (profile as any)?.given_name || existingUser.firstName,
-                  lastName: (profile as any)?.family_name || existingUser.lastName,
-                }
+                data: updateData
               });
             }
           } else {
             // Create new user with Google info
-            const isAdminAccount = user.email === 'matthewvogel1729@gmail.com';
+            const adminEmails = ['matthewvogel1729@gmail.com', 'kencoder@gmail.com'];
+            const isAdminAccount = adminEmails.includes(user.email!);
             
             await prisma.user.create({
               data: {
