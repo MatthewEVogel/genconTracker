@@ -46,10 +46,6 @@ export default function SchedulePage() {
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [newTimerDate, setNewTimerDate] = useState('');
   const [userTimezone, setUserTimezone] = useState<string>('America/New_York');
-  const [showWishlistModal, setShowWishlistModal] = useState(false);
-  const [wishlistText, setWishlistText] = useState('');
-  const [wishlistImporting, setWishlistImporting] = useState(false);
-  const [wishlistResults, setWishlistResults] = useState<any>(null);
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -240,43 +236,6 @@ export default function SchedulePage() {
     }
   };
 
-  const handleImportWishlist = async () => {
-    if (!user || !wishlistText.trim()) return;
-
-    try {
-      setWishlistImporting(true);
-      setError('');
-
-      const response = await fetch('/api/wishlist/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          wishlistText: wishlistText
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to import wishlist');
-      }
-
-      setWishlistResults(data);
-      
-      // Refresh schedule data to show newly added events
-      await fetchScheduleData();
-      await fetchUserEvents();
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during import');
-    } finally {
-      setWishlistImporting(false);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       // Sign out from NextAuth first if using Google OAuth
@@ -329,22 +288,9 @@ export default function SchedulePage() {
           </div>
         )}
 
-        {/* Control Buttons */}
-        <div className="mb-6 flex justify-center space-x-4">
-          {/* Wishlist Import Button */}
-          <button
-            onClick={() => {
-              setShowWishlistModal(true);
-              setWishlistResults(null);
-              setWishlistText('');
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-          >
-            Import Wishlist
-          </button>
-
-          {/* Admin Timer Controls */}
-          {user.isAdmin && (
+        {/* Admin Timer Controls */}
+        {user.isAdmin && (
+          <div className="mb-6 flex justify-center">
             <button
               onClick={() => {
                 setShowTimerModal(true);
@@ -365,8 +311,8 @@ export default function SchedulePage() {
             >
               {registrationTimer ? 'Update Registration Timer' : 'Set Registration Timer'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Day Tabs */}
         <div className="mb-6">
@@ -514,177 +460,6 @@ export default function SchedulePage() {
               >
                 Cancel
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Wishlist Import Modal */}
-      {showWishlistModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-green-600 mb-2">
-                Import GenCon Wishlist
-              </h3>
-              
-              <p className="text-gray-700 mb-4">
-                Paste your GenCon wishlist content below. The system will automatically extract event IDs and add them to your schedule.
-              </p>
-
-              {!wishlistResults ? (
-                <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Wishlist Content
-                    </label>
-                    <textarea
-                      value={wishlistText}
-                      onChange={(e) => setWishlistText(e.target.value)}
-                      placeholder="Paste your GenCon wishlist content here..."
-                      rows={12}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      The system will look for event IDs in the format: RPG25ND272941, WKS25ND272414, etc.
-                    </p>
-                  </div>
-
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleImportWishlist}
-                      disabled={wishlistImporting || !wishlistText.trim()}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {wishlistImporting ? 'Importing...' : 'Import Wishlist'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowWishlistModal(false);
-                        setWishlistText('');
-                        setWishlistResults(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Import Results */}
-                  <div className="space-y-4">
-                    {/* Summary */}
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-medium text-green-800 mb-2">Import Summary</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="text-center">
-                          <div className="font-semibold text-green-600">{wishlistResults.summary.successfullyAdded}</div>
-                          <div className="text-gray-600">Added</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-semibold text-yellow-600">{wishlistResults.summary.alreadyRegistered}</div>
-                          <div className="text-gray-600">Already Registered</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-semibold text-red-600">{wishlistResults.summary.notFoundInDatabase}</div>
-                          <div className="text-gray-600">Not Found</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-semibold text-orange-600">{wishlistResults.summary.canceledEvents}</div>
-                          <div className="text-gray-600">Canceled</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Added Events */}
-                    {wishlistResults.details.addedEvents.length > 0 && (
-                      <div className="bg-white border border-green-200 rounded-lg p-4">
-                        <h4 className="font-medium text-green-800 mb-2">
-                          ✅ Successfully Added ({wishlistResults.details.addedEvents.length})
-                        </h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {wishlistResults.details.addedEvents.map((event: any, index: number) => (
-                            <div key={index} className="text-sm text-gray-700">
-                              <span className="font-mono text-blue-600">{event.id}</span> - {event.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Already Registered */}
-                    {wishlistResults.details.alreadyRegistered.length > 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <h4 className="font-medium text-yellow-800 mb-2">
-                          ⚠️ Already Registered ({wishlistResults.details.alreadyRegistered.length})
-                        </h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {wishlistResults.details.alreadyRegistered.map((event: any, index: number) => (
-                            <div key={index} className="text-sm text-gray-700">
-                              <span className="font-mono text-blue-600">{event.eventId}</span> - {event.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Not Found */}
-                    {wishlistResults.details.notFound.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <h4 className="font-medium text-red-800 mb-2">
-                          ❌ Not Found in Database ({wishlistResults.details.notFound.length})
-                        </h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {wishlistResults.details.notFound.map((event: any, index: number) => (
-                            <div key={index} className="text-sm text-gray-700">
-                              <span className="font-mono text-blue-600">{event.eventId}</span> - {event.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Canceled Events */}
-                    {wishlistResults.details.canceled.length > 0 && (
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <h4 className="font-medium text-orange-800 mb-2">
-                          🚫 Canceled Events ({wishlistResults.details.canceled.length})
-                        </h4>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {wishlistResults.details.canceled.map((event: any, index: number) => (
-                            <div key={index} className="text-sm text-gray-700">
-                              <span className="font-mono text-blue-600">{event.eventId}</span> - {event.title}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setShowWishlistModal(false);
-                        setWishlistText('');
-                        setWishlistResults(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-                    >
-                      Done
-                    </button>
-                    <button
-                      onClick={() => {
-                        setWishlistResults(null);
-                        setWishlistText('');
-                      }}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                    >
-                      Import Another
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>
