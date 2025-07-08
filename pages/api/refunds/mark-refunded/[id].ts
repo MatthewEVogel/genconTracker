@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { RefundService } from '@/lib/services/refundService';
+import { RefundService } from '@/lib/services/server/refundService';
 
 export default async function handler(
   req: NextApiRequest,

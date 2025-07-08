@@ -23,7 +23,13 @@ export interface EventsResponse {
   };
 }
 
+export interface FilterOptionsResponse {
+  ageRatings: string[];
+  eventTypes: string[];
+}
+
 export class EventService {
+  // Get events with filtering and pagination
   static async getEvents(filters: EventFilters): Promise<EventsResponse> {
     const page = filters.page || 1;
     const limit = filters.limit || 100;
@@ -56,9 +62,7 @@ export class EventService {
 
     if (hasFilters) {
       const allEvents = await prisma.event.findMany({
-        orderBy: {
-          startDateTime: 'asc'
-        },
+        orderBy: { startDateTime: 'asc' },
         select: eventSelect
       });
 
@@ -84,9 +88,7 @@ export class EventService {
       const events = await prisma.event.findMany({
         skip,
         take: limit,
-        orderBy: {
-          startDateTime: 'asc'
-        },
+        orderBy: { startDateTime: 'asc' },
         select: eventSelect
       });
 
@@ -105,6 +107,46 @@ export class EventService {
     }
   }
 
+  // Get filter options for age ratings and event types
+  static async getFilterOptions(): Promise<FilterOptionsResponse> {
+    const events = await prisma.event.findMany({
+      select: {
+        ageRequired: true,
+        eventType: true,
+      }
+    });
+
+    const ageRatings = new Set<string>();
+    const eventTypes = new Set<string>();
+
+    events.forEach(event => {
+      if (event.ageRequired) {
+        ageRatings.add(event.ageRequired);
+      } else {
+        ageRatings.add('Not Specified');
+      }
+
+      if (event.eventType) {
+        eventTypes.add(event.eventType);
+      } else {
+        eventTypes.add('Not Specified');
+      }
+    });
+
+    return {
+      ageRatings: Array.from(ageRatings).sort(),
+      eventTypes: Array.from(eventTypes).sort()
+    };
+  }
+
+  // Get single event by ID
+  static async getEventById(eventId: string) {
+    return await prisma.event.findUnique({
+      where: { id: eventId }
+    });
+  }
+
+  // Private method to apply filters to events
   private static applyFilters(events: any[], filters: EventFilters): any[] {
     let filteredEvents = events;
 

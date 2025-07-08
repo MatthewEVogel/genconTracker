@@ -6,7 +6,6 @@ import Timeline from "@/components/Timeline";
 import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
 import { ScheduleService } from "@/lib/services/client/scheduleService";
-import { UserEventService } from "@/lib/services/client/userEventService";
 import { RegistrationTimerService } from "@/lib/services/client/registrationTimerService";
 
 interface Event {
@@ -85,7 +84,7 @@ export default function SchedulePage() {
     if (!user) return;
     
     try {
-      const data = await UserEventService.getUserEvents(user.id);
+      const data = await ScheduleService.getUserEvents(user.id);
       setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -98,7 +97,7 @@ export default function SchedulePage() {
     if (!user) return;
 
     try {
-      const data = await UserEventService.addUserEvent(user.id, eventId);
+      const data = await ScheduleService.addUserEvent(user.id, eventId);
 
       // Check for conflicts or capacity warnings
       if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
@@ -123,7 +122,7 @@ export default function SchedulePage() {
     if (!user) return;
 
     try {
-      await UserEventService.removeUserEvent(user.id, eventId);
+      await ScheduleService.removeUserEvent(user.id, eventId);
 
       // Success - refresh data
       await fetchScheduleData();

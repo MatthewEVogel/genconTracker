@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { EventService } from '@/lib/services/eventService';
+import { EventService } from '@/lib/services/server/eventService';
 
 export default async function handler(
   req: NextApiRequest,

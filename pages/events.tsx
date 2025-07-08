@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
 import { EventService } from "@/lib/services/client/eventService";
-import { UserEventService } from "@/lib/services/client/userEventService";
+import { ScheduleService } from "@/lib/services/client/scheduleService";
 
 interface Event {
   id: string;
@@ -131,7 +131,7 @@ export default function EventsPage() {
     if (!user) return;
     
     try {
-      const data = await UserEventService.getUserEvents(user.id);
+      const data = await ScheduleService.getUserEvents(user.id);
       setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
     } catch (err) {
       console.error('Error fetching user events:', err);
@@ -206,7 +206,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      const data = await UserEventService.addUserEvent(user.id, eventId);
+      const data = await ScheduleService.addUserEvent(user.id, eventId);
 
       // Check for conflicts or capacity warnings
       if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
@@ -249,7 +249,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      await UserEventService.removeUserEvent(user.id, conflictModal.eventId);
+      await ScheduleService.removeUserEvent(user.id, conflictModal.eventId);
     } catch (err) {
       console.error('Error removing event:', err);
     }
@@ -267,7 +267,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      await UserEventService.removeUserEvent(user.id, eventId);
+      await ScheduleService.removeUserEvent(user.id, eventId);
 
       // Refresh user events
       await fetchUserEvents();

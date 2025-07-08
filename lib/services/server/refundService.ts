@@ -34,6 +34,7 @@ export interface MarkRefundedResponse {
 }
 
 export class RefundService {
+  // Get all tickets that need refunds
   static async getRefundTickets(): Promise<RefundTicketsResponse> {
     const refundTickets = await prisma.purchasedTicket.findMany({
       where: {
@@ -48,6 +49,7 @@ export class RefundService {
     return { refundTickets };
   }
 
+  // Parse tickets from GenCon purchase text and save them
   static async parseTickets(text: string, userEmail: string): Promise<ParseTicketsResponse> {
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -83,23 +85,16 @@ export class RefundService {
     await this.recalculateDuplicates();
 
     // Get updated refund list
-    const refundTickets = await prisma.purchasedTicket.findMany({
-      where: {
-        needsRefund: true,
-        isRefunded: false
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    const refundTickets = await this.getRefundTickets();
 
     return {
       message: `Successfully parsed ${parsedTickets.length} tickets`,
       ticketsAdded: savedTickets.length,
-      refundTickets
+      refundTickets: refundTickets.refundTickets
     };
   }
 
+  // Mark a ticket as refunded
   static async markTicketAsRefunded(ticketId: string): Promise<MarkRefundedResponse> {
     // Mark ticket as refunded
     const updatedTicket = await prisma.purchasedTicket.update({
@@ -114,22 +109,52 @@ export class RefundService {
     await this.recalculateDuplicates();
 
     // Get updated refund list
-    const refundTickets = await prisma.purchasedTicket.findMany({
-      where: {
-        needsRefund: true,
-        isRefunded: false
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    const refundTickets = await this.getRefundTickets();
 
     return {
       message: 'Ticket marked as refunded',
-      refundTickets
+      refundTickets: refundTickets.refundTickets
     };
   }
 
+  // Get all purchased tickets (for admin purposes)
+  static async getAllPurchasedTickets() {
+    return await prisma.purchasedTicket.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Get purchased tickets by user email
+  static async getPurchasedTicketsByUser(userEmail: string) {
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return await prisma.purchasedTicket.findMany({
+      where: {
+        purchaser: `${user.firstName} ${user.lastName}`
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Delete a purchased ticket (admin only)
+  static async deletePurchasedTicket(ticketId: string) {
+    await prisma.purchasedTicket.delete({
+      where: { id: ticketId }
+    });
+
+    // Recalculate duplicates after deletion
+    await this.recalculateDuplicates();
+
+    return { message: 'Ticket deleted successfully' };
+  }
+
+  // Private method to recalculate duplicates across all tickets
   private static async recalculateDuplicates(): Promise<void> {
     // Reset all needsRefund flags
     await prisma.purchasedTicket.updateMany({

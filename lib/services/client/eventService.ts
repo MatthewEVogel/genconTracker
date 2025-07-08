@@ -48,6 +48,7 @@ export interface FilterOptions {
 }
 
 export class EventService {
+  // Get events with filtering and pagination
   static async getEvents(filters: EventFilters): Promise<EventsResponse> {
     const params = new URLSearchParams();
     
@@ -71,6 +72,7 @@ export class EventService {
     return data;
   }
 
+  // Get filter options for age ratings and event types
   static async getFilterOptions(): Promise<FilterOptions> {
     const response = await fetch('/api/filter-options');
     const data = await response.json();
@@ -80,5 +82,51 @@ export class EventService {
     }
     
     return data;
+  }
+
+  // Get single event by ID
+  static async getEventById(eventId: string): Promise<Event> {
+    const response = await fetch(`/api/events/${eventId}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch event');
+    }
+    
+    return data.event;
+  }
+
+  // Search events by text
+  static async searchEvents(searchTerm: string, limit: number = 10): Promise<Event[]> {
+    const filters: EventFilters = {
+      search: searchTerm,
+      limit,
+      page: 1
+    };
+
+    const result = await this.getEvents(filters);
+    return result.events;
+  }
+
+  // Get events for a specific day
+  static async getEventsByDay(day: string, page: number = 1, limit: number = 100): Promise<EventsResponse> {
+    const filters: EventFilters = {
+      day: day !== 'All Days' ? day : undefined,
+      page,
+      limit
+    };
+
+    return await this.getEvents(filters);
+  }
+
+  // Get events by type
+  static async getEventsByType(eventType: string, page: number = 1, limit: number = 100): Promise<EventsResponse> {
+    const filters: EventFilters = {
+      eventTypes: eventType,
+      page,
+      limit
+    };
+
+    return await this.getEvents(filters);
   }
 }

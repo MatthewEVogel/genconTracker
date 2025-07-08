@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { ScheduleService } from '@/lib/services/scheduleService';
+import { ScheduleService } from '@/lib/services/server/scheduleService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
