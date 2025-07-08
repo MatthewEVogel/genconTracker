@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getEventsForDisplay } from '@/lib/handlers/eventHandlers';
+import { EventService } from '@/lib/services/eventService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -7,29 +7,19 @@ export default async function handler(
 ) {
   if (req.method === 'GET') {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 100;
-      const day = req.query.day as string;
-      const search = req.query.search as string;
-      const startTime = req.query.startTime as string;
-      const endTime = req.query.endTime as string;
-      const ageRatings = req.query.ageRatings as string;
-      const eventTypes = req.query.eventTypes as string;
-      const maxParticipants = req.query.maxParticipants as string;
-      
       const filters = {
-        page,
-        limit,
-        day,
-        search,
-        startTime,
-        endTime,
-        ageRatings: ageRatings ? ageRatings.split(',').map(rating => rating.trim()) : undefined,
-        eventTypes: eventTypes ? eventTypes.split(',').map(type => type.trim()) : undefined,
-        maxParticipants: maxParticipants ? parseInt(maxParticipants.trim()) : undefined
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 100,
+        day: req.query.day as string,
+        search: req.query.search as string,
+        startTime: req.query.startTime as string,
+        endTime: req.query.endTime as string,
+        ageRatings: req.query.ageRatings as string,
+        eventTypes: req.query.eventTypes as string,
+        maxParticipants: req.query.maxParticipants as string,
       };
 
-      const result = await getEventsForDisplay(filters);
+      const result = await EventService.getEvents(filters);
       
       return res.status(200).json(result);
     } catch (error) {

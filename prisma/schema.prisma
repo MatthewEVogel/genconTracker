@@ -23,8 +23,8 @@ model User {
   
   // OAuth fields
   googleId  String?  @unique
-  provider  String   @default("manual")
-  image     String?
+  provider  String   @default("manual") // "manual" or "google"
+  image     String?  // Profile picture URL
   
   // Notification settings
   phoneNumber String?
@@ -32,15 +32,12 @@ model User {
   textNotifications Boolean @default(false)
   
   createdAt DateTime @default(now())
-  
-  // Relations
-  desiredEvents DesiredEvent[]
-  purchasedEvents PurchasedEvent[]
-  refundedEvents RefundedEvent[]
+  userEvents UserEvent[]
+  ticketAssignments TicketAssignment[]
 }
 
 model Event {
-  id                String   @id
+  id                String   @id // Game ID from TSV
   title             String
   shortDescription  String?
   eventType         String?
@@ -54,23 +51,21 @@ model Event {
   cost              String?
   location          String?
   ticketsAvailable  Int?
+  priority          Int      @default(1) // 1=Normal, 2=Important, 3=Critical
   isCanceled        Boolean  @default(false)
   canceledAt        DateTime?
   lastUpdated       DateTime @default(now()) @updatedAt
   createdAt         DateTime @default(now())
-  
-  // Relations
-  desiredEvents DesiredEvent[]
-  purchasedEvents PurchasedEvent[]
-  refundedEvents RefundedEvent[]
+  userEvents        UserEvent[]
+  ticketAssignments TicketAssignment[]
 }
 
-model DesiredEvent {
+model UserEvent {
   id        String   @id @default(uuid())
   userId    String
   eventId   String
-  priority  Int      @default(1)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -78,29 +73,53 @@ model DesiredEvent {
   @@unique([userId, eventId])
 }
 
-model PurchasedEvent {
-  id           String   @id @default(uuid())
-  userId       String
-  eventId      String
-  recipient    String
-  purchaseDate DateTime @default(now())
-  createdAt    DateTime @default(now())
+model TicketAssignment {
+  id              String   @id @default(uuid())
+  userId          String
+  eventId         String
+  calculationId   String
+  buyingFor       String   // JSON string of user names array
+  priority        Int
+  cost            String
+  createdAt       DateTime @default(now())
   
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  calculation     CalculationRun @relation(fields: [calculationId], references: [id], onDelete: Cascade)
   
-  @@unique([userId, eventId])
+  @@unique([userId, eventId, calculationId])
 }
 
-model RefundedEvent {
+model CalculationRun {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  totalUsers      Int
+  totalEvents     Int
+  errors          String   // JSON string of error messages array
+  
+  assignments     TicketAssignment[]
+}
+
+model RegistrationTimer {
+  id              String   @id @default(uuid())
+  registrationDate DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String   // User ID of admin who set it
+  
+  @@map("registration_timer")
+}
+
+model PurchasedTicket {
   id          String   @id @default(uuid())
-  userId      String
-  eventId     String
-  refundDate  DateTime @default(now())
+  eventId     String   // RPG25ND272941 (first 13 chars)
+  eventName   String   // Dread: Victim's Choice
+  recipient   String   // Liv Benjamin (from ticket)
+  purchaser   String   // Matthew Vogel (logged-in user)
+  purchaseDate DateTime @default(now())
+  needsRefund Boolean  @default(false)
+  isRefunded  Boolean  @default(false)
   createdAt   DateTime @default(now())
   
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, eventId])
+  @@index([eventId])
 }
