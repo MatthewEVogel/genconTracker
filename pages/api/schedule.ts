@@ -10,14 +10,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(result);
     } catch (error) {
       console.error('Schedule API: Error fetching schedule data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorName = error instanceof Error ? error.name : 'Unknown';
+      
       console.error('Schedule API: Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: errorMessage,
+        stack: errorStack,
+        name: errorName
       });
       return res.status(500).json({ 
         error: 'Failed to fetch schedule data',
-        details: error.message 
+        details: errorMessage 
       });
     }
   }
