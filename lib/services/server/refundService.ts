@@ -158,6 +158,8 @@ export class RefundService {
 
   // NEW METHODS for migrated schema (to be used after migration):
   
+  // TODO: Uncomment after database migration to new schema
+  /*
   // Get purchased events that are duplicates and need refunds
   static async getPurchasedEventDuplicates(): Promise<RefundTicketsResponse> {
     // Find duplicate purchased events (same eventId + recipient combination)
@@ -232,6 +234,7 @@ export class RefundService {
       };
     });
   }
+  */
 
   // Private method to recalculate duplicates across all tickets
   private static async recalculateDuplicates(): Promise<void> {
