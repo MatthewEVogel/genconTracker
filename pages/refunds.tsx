@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import useUserStore from '@/store/useUserStore';
 import Navigation from '@/components/Navigation';
+import { RefundService } from '@/lib/services/client/refundService';
 
 interface RefundTicket {
   id: string;
@@ -36,16 +37,10 @@ export default function Refunds() {
 
   const loadRefundTickets = async () => {
     try {
-      const response = await fetch('/api/refunds');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setRefundTickets(data.refundTickets || []);
-      } else {
-        setError(data.error || 'Failed to load refund tickets');
-      }
+      const data = await RefundService.getRefundTickets();
+      setRefundTickets(data.refundTickets || []);
     } catch (err) {
-      setError('Failed to load refund tickets');
+      setError(err instanceof Error ? err.message : 'Failed to load refund tickets');
     }
   };
 
@@ -60,25 +55,12 @@ export default function Refunds() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/refunds/parse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: pasteText }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(data.message);
-        setRefundTickets(data.refundTickets || []);
-        setPasteText(''); // Clear the text area
-      } else {
-        setError(data.error || 'Failed to parse tickets');
-      }
+      const data = await RefundService.parseTickets(pasteText);
+      setSuccess(data.message);
+      setRefundTickets(data.refundTickets || []);
+      setPasteText(''); // Clear the text area
     } catch (err) {
-      setError('Failed to parse tickets');
+      setError(err instanceof Error ? err.message : 'Failed to parse tickets');
     } finally {
       setParsing(false);
     }
@@ -89,20 +71,11 @@ export default function Refunds() {
     setError('');
 
     try {
-      const response = await fetch(`/api/refunds/mark-refunded/${ticketId}`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setRefundTickets(data.refundTickets || []);
-        setSuccess('Ticket marked as refunded');
-      } else {
-        setError(data.error || 'Failed to mark ticket as refunded');
-      }
+      const data = await RefundService.markTicketAsRefunded(ticketId);
+      setRefundTickets(data.refundTickets || []);
+      setSuccess('Ticket marked as refunded');
     } catch (err) {
-      setError('Failed to mark ticket as refunded');
+      setError(err instanceof Error ? err.message : 'Failed to mark ticket as refunded');
     } finally {
       setLoading(false);
     }
