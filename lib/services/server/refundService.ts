@@ -156,24 +156,22 @@ export class RefundService {
     return { message: 'Ticket deleted successfully' };
   }
 
-  // NEW METHODS for migrated schema (to be used after migration):
+  // NEW METHODS for migrated schema:
   
-  // TODO: Uncomment after database migration to new schema
-  /*
   // Get purchased events that are duplicates and need refunds
   static async getPurchasedEventDuplicates(): Promise<RefundTicketsResponse> {
     // Find duplicate purchased events (same eventId + recipient combination)
     const duplicates = await prisma.$queryRaw`
       SELECT pe.*, u.email as purchaser_email
       FROM purchased_events pe
-      JOIN users u ON pe.user_id = u.id
-      WHERE (pe.event_id, pe.recipient) IN (
-        SELECT event_id, recipient
+      JOIN users u ON pe."userId" = u.id
+      WHERE (pe."eventId", pe.recipient) IN (
+        SELECT "eventId", recipient
         FROM purchased_events
-        GROUP BY event_id, recipient
+        GROUP BY "eventId", recipient
         HAVING COUNT(*) > 1
       )
-      ORDER BY pe.event_id, pe.recipient, pe.purchase_date ASC
+      ORDER BY pe."eventId", pe.recipient, pe."purchaseDate" ASC
     `;
 
     // Transform to expected format
@@ -181,11 +179,11 @@ export class RefundService {
       .slice(1) // Remove first occurrence, keep duplicates
       .map(ticket => ({
         id: ticket.id,
-        eventId: ticket.event_id,
-        eventName: ticket.event_id, // Will be derived from Event table
+        eventId: ticket.eventId,
+        eventName: ticket.eventId, // Will be derived from Event table
         recipient: ticket.recipient,
         purchaser: ticket.purchaser_email,
-        createdAt: ticket.created_at,
+        createdAt: ticket.createdAt,
         needsRefund: true, // These are duplicates that need refunds
         isRefunded: false, // Not yet refunded
       }));
@@ -234,7 +232,6 @@ export class RefundService {
       };
     });
   }
-  */
 
   // Private method to recalculate duplicates across all tickets
   private static async recalculateDuplicates(): Promise<void> {
