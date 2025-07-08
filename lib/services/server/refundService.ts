@@ -36,6 +36,8 @@ export interface MarkRefundedResponse {
 export class RefundService {
   // Get all tickets that need refunds
   static async getRefundTickets(): Promise<RefundTicketsResponse> {
+    // For now, continue using the legacy PurchasedTicket table during migration
+    // TODO: After migration, this should query PurchasedEvent for duplicates
     const refundTickets = await prisma.purchasedTicket.findMany({
       where: {
         needsRefund: true,
@@ -152,6 +154,81 @@ export class RefundService {
     await this.recalculateDuplicates();
 
     return { message: 'Ticket deleted successfully' };
+  }
+
+  // NEW METHODS for migrated schema (to be used after migration):
+  
+  // Get purchased events that are duplicates and need refunds
+  static async getPurchasedEventDuplicates(): Promise<RefundTicketsResponse> {
+    // Find duplicate purchased events (same eventId + recipient combination)
+    const duplicates = await prisma.$queryRaw`
+      SELECT pe.*, u.email as purchaser_email
+      FROM purchased_events pe
+      JOIN users u ON pe.user_id = u.id
+      WHERE (pe.event_id, pe.recipient) IN (
+        SELECT event_id, recipient
+        FROM purchased_events
+        GROUP BY event_id, recipient
+        HAVING COUNT(*) > 1
+      )
+      ORDER BY pe.event_id, pe.recipient, pe.purchase_date ASC
+    `;
+
+    // Transform to expected format
+    const refundTickets = (duplicates as any[])
+      .slice(1) // Remove first occurrence, keep duplicates
+      .map(ticket => ({
+        id: ticket.id,
+        eventId: ticket.event_id,
+        eventName: ticket.event_id, // Will be derived from Event table
+        recipient: ticket.recipient,
+        purchaser: ticket.purchaser_email,
+        createdAt: ticket.created_at,
+      }));
+
+    return { refundTickets };
+  }
+
+  // Move purchased event to refunded events
+  static async refundPurchasedEvent(purchasedEventId: string, refundReason?: string): Promise<MarkRefundedResponse> {
+    return await prisma.$transaction(async (tx) => {
+      // Get the purchased event
+      const purchasedEvent = await tx.purchasedEvent.findUnique({
+        where: { id: purchasedEventId },
+        include: { user: true, event: true }
+      });
+
+      if (!purchasedEvent) {
+        throw new Error('Purchased event not found');
+      }
+
+      // Create refunded event record
+      await tx.refundedEvent.create({
+        data: {
+          userId: purchasedEvent.userId,
+          eventId: purchasedEvent.eventId,
+          recipient: purchasedEvent.recipient,
+          originalCost: purchasedEvent.cost,
+          refundAmount: purchasedEvent.cost, // Assume full refund
+          purchaseDate: purchasedEvent.purchaseDate,
+          refundReason: refundReason,
+          confirmation: purchasedEvent.confirmation,
+        }
+      });
+
+      // Delete the purchased event
+      await tx.purchasedEvent.delete({
+        where: { id: purchasedEventId }
+      });
+
+      // Get updated duplicates list
+      const updatedDuplicates = await this.getPurchasedEventDuplicates();
+
+      return {
+        message: 'Event refunded successfully',
+        refundTickets: updatedDuplicates.refundTickets
+      };
+    });
   }
 
   // Private method to recalculate duplicates across all tickets

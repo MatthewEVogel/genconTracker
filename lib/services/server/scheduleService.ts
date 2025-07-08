@@ -56,7 +56,7 @@ export class ScheduleService {
   static async getScheduleData(): Promise<ScheduleResponse> {
     const users = await prisma.user.findMany({
       include: {
-        userEvents: {
+        desiredEvents: {
           include: {
             event: true
           }
@@ -70,7 +70,7 @@ export class ScheduleService {
 
   // Get events for a specific user
   static async getUserEvents(userId: string): Promise<UserEventResponse> {
-    const userEvents = await prisma.userEvent.findMany({
+    const desiredEvents = await prisma.desiredEvent.findMany({
       where: { userId },
       include: {
         event: {
@@ -88,13 +88,25 @@ export class ScheduleService {
       }
     });
 
+    // Transform to match the expected format
+    const userEvents = desiredEvents.map(desiredEvent => ({
+      event: {
+        ...desiredEvent.event,
+        // Convert DateTime to string | null to match interface
+        startDateTime: desiredEvent.event.startDateTime?.toISOString() || null,
+        endDateTime: desiredEvent.event.endDateTime?.toISOString() || null,
+        // Convert Decimal to string | null for cost
+        cost: desiredEvent.event.cost?.toString() || null,
+      }
+    }));
+
     return { userEvents };
   }
 
   // Add an event to a user's schedule
   static async addUserEvent(userId: string, eventId: string): Promise<AddEventResponse> {
     // Check if the user already has this event
-    const existingUserEvent = await prisma.userEvent.findUnique({
+    const existingDesiredEvent = await prisma.desiredEvent.findUnique({
       where: {
         userId_eventId: {
           userId,
@@ -103,7 +115,7 @@ export class ScheduleService {
       }
     });
 
-    if (existingUserEvent) {
+    if (existingDesiredEvent) {
       throw new Error('Event already in schedule');
     }
 
@@ -120,10 +132,11 @@ export class ScheduleService {
     const { conflicts, capacityWarning } = await this.checkEventConflicts(userId, event);
 
     // Add the event to the user's schedule
-    await prisma.userEvent.create({
+    await prisma.desiredEvent.create({
       data: {
         userId,
-        eventId
+        eventId,
+        priority: 1 // Default priority
       }
     });
 
@@ -136,7 +149,7 @@ export class ScheduleService {
 
   // Remove an event from a user's schedule
   static async removeUserEvent(userId: string, eventId: string): Promise<RemoveEventResponse> {
-    const userEvent = await prisma.userEvent.findUnique({
+    const desiredEvent = await prisma.desiredEvent.findUnique({
       where: {
         userId_eventId: {
           userId,
@@ -145,11 +158,11 @@ export class ScheduleService {
       }
     });
 
-    if (!userEvent) {
+    if (!desiredEvent) {
       throw new Error('Event not found in schedule');
     }
 
-    await prisma.userEvent.delete({
+    await prisma.desiredEvent.delete({
       where: {
         userId_eventId: {
           userId,
@@ -168,15 +181,15 @@ export class ScheduleService {
     return users.map(user => ({
       id: user.id,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
-      events: user.userEvents.map((userEvent: any) => ({
-        id: userEvent.event.id,
-        title: userEvent.event.title,
-        startDateTime: userEvent.event.startDateTime,
-        endDateTime: userEvent.event.endDateTime,
-        eventType: userEvent.event.eventType,
-        location: userEvent.event.location,
-        cost: userEvent.event.cost,
-        ticketsAvailable: userEvent.event.ticketsAvailable
+      events: user.desiredEvents.map((desiredEvent: any) => ({
+        id: desiredEvent.event.id,
+        title: desiredEvent.event.title,
+        startDateTime: desiredEvent.event.startDateTime?.toISOString() || null,
+        endDateTime: desiredEvent.event.endDateTime?.toISOString() || null,
+        eventType: desiredEvent.event.eventType,
+        location: desiredEvent.event.location,
+        cost: desiredEvent.event.cost?.toString() || null,
+        ticketsAvailable: desiredEvent.event.ticketsAvailable
       }))
     }));
   }
@@ -186,15 +199,15 @@ export class ScheduleService {
     const conflicts = [];
     let capacityWarning = false;
 
-    // Check for time conflicts with existing user events
+    // Check for time conflicts with existing desired events
     if (newEvent.startDateTime && newEvent.endDateTime) {
-      const userEvents = await prisma.userEvent.findMany({
+      const desiredEvents = await prisma.desiredEvent.findMany({
         where: { userId },
         include: { event: true }
       });
 
-      for (const userEvent of userEvents) {
-        const existingEvent = userEvent.event;
+      for (const desiredEvent of desiredEvents) {
+        const existingEvent = desiredEvent.event;
         if (existingEvent.startDateTime && existingEvent.endDateTime) {
           const newStart = new Date(newEvent.startDateTime);
           const newEnd = new Date(newEvent.endDateTime);
@@ -206,8 +219,8 @@ export class ScheduleService {
             conflicts.push({
               id: existingEvent.id,
               title: existingEvent.title,
-              startDateTime: existingEvent.startDateTime,
-              endDateTime: existingEvent.endDateTime
+              startDateTime: existingEvent.startDateTime?.toISOString() || null,
+              endDateTime: existingEvent.endDateTime?.toISOString() || null
             });
           }
         }

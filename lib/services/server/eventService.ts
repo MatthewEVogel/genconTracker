@@ -58,6 +58,8 @@ export class EventService {
       cost: true,
       location: true,
       ticketsAvailable: true,
+      isCanceled: true,
+      canceledAt: true,
     };
 
     if (hasFilters) {
@@ -73,7 +75,7 @@ export class EventService {
       const totalPages = Math.ceil(totalEvents / limit);
 
       return {
-        events: paginatedEvents,
+        events: this.transformEvents(paginatedEvents),
         pagination: {
           currentPage: page,
           totalPages,
@@ -95,7 +97,7 @@ export class EventService {
       const totalPages = Math.ceil(totalEvents / limit);
 
       return {
-        events,
+        events: this.transformEvents(events),
         pagination: {
           currentPage: page,
           totalPages,
@@ -141,9 +143,29 @@ export class EventService {
 
   // Get single event by ID
   static async getEventById(eventId: string) {
-    return await prisma.event.findUnique({
+    const event = await prisma.event.findUnique({
       where: { id: eventId }
     });
+    
+    if (!event) return null;
+    
+    return this.transformEvent(event);
+  }
+
+  // Transform events from database format to API format
+  private static transformEvents(events: any[]): any[] {
+    return events.map(event => this.transformEvent(event));
+  }
+
+  // Transform single event from database format to API format
+  private static transformEvent(event: any): any {
+    return {
+      ...event,
+      startDateTime: event.startDateTime?.toISOString() || null,
+      endDateTime: event.endDateTime?.toISOString() || null,
+      canceledAt: event.canceledAt?.toISOString() || null,
+      cost: event.cost?.toString() || null,
+    };
   }
 
   // Private method to apply filters to events
@@ -167,7 +189,10 @@ export class EventService {
       filteredEvents = filteredEvents.filter(event => {
         if (!event.startDateTime) return false;
         try {
-          const eventDate = new Date(event.startDateTime);
+          // Handle both Date objects and strings
+          const eventDate = event.startDateTime instanceof Date 
+            ? event.startDateTime 
+            : new Date(event.startDateTime);
           const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'long' });
           return dayOfWeek === filters.day;
         } catch {
@@ -181,7 +206,9 @@ export class EventService {
       filteredEvents = filteredEvents.filter(event => {
         if (!event.startDateTime) return false;
         try {
-          const eventDate = new Date(event.startDateTime);
+          const eventDate = event.startDateTime instanceof Date 
+            ? event.startDateTime 
+            : new Date(event.startDateTime);
           const eventTime = eventDate.toLocaleTimeString('en-US', { 
             hour12: false, 
             hour: '2-digit', 
@@ -199,7 +226,9 @@ export class EventService {
       filteredEvents = filteredEvents.filter(event => {
         if (!event.endDateTime) return false;
         try {
-          const eventDate = new Date(event.endDateTime);
+          const eventDate = event.endDateTime instanceof Date 
+            ? event.endDateTime 
+            : new Date(event.endDateTime);
           const eventTime = eventDate.toLocaleTimeString('en-US', { 
             hour12: false, 
             hour: '2-digit', 
