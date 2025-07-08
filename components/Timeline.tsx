@@ -1,24 +1,8 @@
 import { useState } from 'react';
-
-interface Event {
-  id: string;
-  title: string;
-  startDateTime: string;
-  endDateTime: string;
-  eventType?: string;
-  location?: string;
-  cost?: string;
-  ticketsAvailable?: number;
-}
-
-interface User {
-  id: string;
-  name: string;
-  events: Event[];
-}
+import { ScheduleUser, ScheduleEvent } from '@/lib/services/client/scheduleService';
 
 interface TimelineProps {
-  scheduleData: User[];
+  scheduleData: ScheduleUser[];
   currentUser: { id: string; name: string };
   selectedDay: string;
   onAddEvent: (eventId: string) => void;
@@ -35,7 +19,7 @@ const formatTime = (hour: number) => {
   return `${hour - 12} PM`;
 };
 
-const parseDateTime = (dateTimeStr: string) => {
+const parseDateTime = (dateTimeStr: string | null) => {
   if (!dateTimeStr) return null;
   try {
     return new Date(dateTimeStr);
@@ -58,7 +42,7 @@ const getEventPosition = (startTime: Date, endTime: Date) => {
   };
 };
 
-const checkConflicts = (events: Event[], targetEvent: Event) => {
+const checkConflicts = (events: ScheduleEvent[], targetEvent: ScheduleEvent) => {
   const targetStart = parseDateTime(targetEvent.startDateTime);
   const targetEnd = parseDateTime(targetEvent.endDateTime);
   
@@ -85,10 +69,10 @@ export default function Timeline({
   onRemoveEvent,
   userEventIds 
 }: TimelineProps) {
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
 
   // Filter events for the selected day
-  const filterEventsByDay = (events: Event[]) => {
+  const filterEventsByDay = (events: ScheduleEvent[]) => {
     return events.filter(event => {
       const eventDate = parseDateTime(event.startDateTime);
       if (!eventDate) return false;

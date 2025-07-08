@@ -5,32 +5,15 @@ import useUserStore from "@/store/useUserStore";
 import Timeline from "@/components/Timeline";
 import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
-import { ScheduleService } from "@/lib/services/client/scheduleService";
+import { ScheduleService, ScheduleUser, ScheduleEvent } from "@/lib/services/client/scheduleService";
 import { RegistrationTimerService } from "@/lib/services/client/registrationTimerService";
-
-interface Event {
-  id: string;
-  title: string;
-  startDateTime: string;
-  endDateTime: string;
-  eventType?: string;
-  location?: string;
-  cost?: string;
-  ticketsAvailable?: number;
-}
-
-interface User {
-  id: string;
-  name: string;
-  events: Event[];
-}
 
 const DAYS = ['Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function SchedulePage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
-  const [scheduleData, setScheduleData] = useState<User[]>([]);
+  const [scheduleData, setScheduleData] = useState<ScheduleUser[]>([]);
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('Thursday');
   const [loading, setLoading] = useState(true);

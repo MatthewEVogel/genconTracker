@@ -3,12 +3,12 @@ import { prisma } from '@/lib/prisma';
 export interface ScheduleEvent {
   id: string;
   title: string;
-  startDateTime: string;
-  endDateTime: string;
-  eventType?: string;
-  location?: string;
-  cost?: string;
-  ticketsAvailable?: number;
+  startDateTime: string | null;
+  endDateTime: string | null;
+  eventType?: string | null;
+  location?: string | null;
+  cost?: string | null;
+  ticketsAvailable?: number | null;
 }
 
 export interface ScheduleUser {
@@ -26,12 +26,12 @@ export interface UserEventResponse {
     event: {
       id: string;
       title: string;
-      startDateTime: string;
-      endDateTime: string;
-      eventType?: string;
-      location?: string;
-      cost?: string;
-      ticketsAvailable?: number;
+      startDateTime: string | null;
+      endDateTime: string | null;
+      eventType?: string | null;
+      location?: string | null;
+      cost?: string | null;
+      ticketsAvailable?: number | null;
     };
   }>;
 }
@@ -41,8 +41,8 @@ export interface AddEventResponse {
   conflicts?: Array<{
     id: string;
     title: string;
-    startDateTime: string;
-    endDateTime: string;
+    startDateTime: string | null;
+    endDateTime: string | null;
   }>;
   capacityWarning?: boolean;
 }

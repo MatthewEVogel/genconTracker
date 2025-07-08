@@ -2,34 +2,9 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
-import { EventService } from "@/lib/services/client/eventService";
+import { EventService, Event, Pagination } from "@/lib/services/client/eventService";
 import { ScheduleService } from "@/lib/services/client/scheduleService";
 
-interface Event {
-  id: string;
-  title: string;
-  shortDescription?: string;
-  eventType?: string;
-  gameSystem?: string;
-  startDateTime?: string;
-  duration?: string;
-  ageRequired?: string;
-  experienceRequired?: string;
-  materialsRequired?: string;
-  cost?: string;
-  location?: string;
-  ticketsAvailable?: number;
-  isCanceled?: boolean;
-  canceledAt?: string;
-}
-
-interface Pagination {
-  currentPage: number;
-  totalPages: number;
-  totalEvents: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
 
 interface ConflictModal {
   show: boolean;
