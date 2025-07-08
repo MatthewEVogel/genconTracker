@@ -20,7 +20,7 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
     // Get all users with their events and priorities
     const users = await prisma.user.findMany({
       include: {
-        userEvents: {
+        desiredEvents: {
           include: {
             event: true
           }
@@ -30,13 +30,13 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
 
     // Transform data for the algorithm
     const userEventData: UserEventData[] = users.flatMap(user =>
-      user.userEvents.map(userEvent => ({
+      user.desiredEvents.map(userEvent => ({
         userId: user.id,
         userName: `${user.firstName} ${user.lastName}`,
         eventId: userEvent.event.id,
         eventTitle: userEvent.event.title,
         priority: userEvent.event.priority,
-        cost: userEvent.event.cost || '0'
+        cost: userEvent.event.cost?.toString() || '0'
       }))
     );
 
@@ -107,12 +107,7 @@ export async function getLatestTicketAssignments() {
     const latestCalculation = await prisma.calculationRun.findFirst({
       orderBy: { createdAt: 'desc' },
       include: {
-        assignments: {
-          include: {
-            user: true,
-            event: true
-          }
-        }
+        assignments: true
       }
     });
 
@@ -120,23 +115,42 @@ export async function getLatestTicketAssignments() {
       return null;
     }
 
+    // Get all users and events for the assignments
+    const userIds = [...new Set(latestCalculation.assignments.map(a => a.userId))];
+    const eventIds = [...new Set(latestCalculation.assignments.map(a => a.eventId))];
+    
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, firstName: true, lastName: true }
+    });
+    
+    const events = await prisma.event.findMany({
+      where: { id: { in: eventIds } },
+      select: { id: true, title: true }
+    });
+    
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const eventMap = new Map(events.map(e => [e.id, e]));
+
     // Transform to the expected format
     const userAssignments = new Map<string, any>();
 
     for (const assignment of latestCalculation.assignments) {
       if (!userAssignments.has(assignment.userId)) {
+        const user = userMap.get(assignment.userId);
         userAssignments.set(assignment.userId, {
           userId: assignment.userId,
-          userName: `${assignment.user.firstName} ${assignment.user.lastName}`,
+          userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
           events: [],
           totalTickets: 0
         });
       }
 
       const userAssignment = userAssignments.get(assignment.userId);
+      const event = eventMap.get(assignment.eventId);
       userAssignment.events.push({
         eventId: assignment.eventId,
-        eventTitle: assignment.event.title,
+        eventTitle: event?.title || 'Unknown Event',
         priority: assignment.priority,
         buyingFor: JSON.parse(assignment.buyingFor),
         cost: assignment.cost
@@ -177,10 +191,6 @@ export async function getUserTicketAssignment(userId: string) {
       where: {
         userId,
         calculationId: latestCalculation.id
-      },
-      include: {
-        event: true,
-        user: true
       }
     });
 
@@ -211,17 +221,34 @@ export async function getUserTicketAssignment(userId: string) {
       };
     }
 
+    // Get user and event data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true }
+    });
+    
+    const eventIds = assignments.map(a => a.eventId);
+    const events = await prisma.event.findMany({
+      where: { id: { in: eventIds } },
+      select: { id: true, title: true }
+    });
+    
+    const eventMap = new Map(events.map(e => [e.id, e]));
+
     // Transform to expected format
     const userAssignment = {
       userId,
-      userName: `${assignments[0].user.firstName} ${assignments[0].user.lastName}`,
-      events: assignments.map(assignment => ({
-        eventId: assignment.eventId,
-        eventTitle: assignment.event.title,
-        priority: assignment.priority,
-        buyingFor: JSON.parse(assignment.buyingFor),
-        cost: assignment.cost
-      })),
+      userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
+      events: assignments.map(assignment => {
+        const event = eventMap.get(assignment.eventId);
+        return {
+          eventId: assignment.eventId,
+          eventTitle: event?.title || 'Unknown Event',
+          priority: assignment.priority,
+          buyingFor: JSON.parse(assignment.buyingFor),
+          cost: assignment.cost
+        };
+      }),
       totalTickets: assignments.length
     };
 

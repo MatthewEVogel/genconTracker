@@ -33,7 +33,7 @@ export default async function handler(
           createdAt: true,
           _count: {
             select: {
-              userEvents: true
+              desiredEvents: true
             }
           }
         },

@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         whereClause.event = { isCanceled: false };
       }
 
-      const userEvents = await prisma.userEvent.findMany({
+      const userEvents = await prisma.desiredEvent.findMany({
         where: whereClause,
         include: {
           event: true
@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Check if user event already exists
-      const existingUserEvent = await prisma.userEvent.findUnique({
+      const existingUserEvent = await prisma.desiredEvent.findUnique({
         where: {
           userId_eventId: {
             userId,
@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Check for time conflicts
-      const userEvents = await prisma.userEvent.findMany({
+      const userEvents = await prisma.desiredEvent.findMany({
         where: { userId },
         include: { event: true }
       });
@@ -111,14 +111,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Check capacity
-      const eventSignups = await prisma.userEvent.count({
+      const eventSignups = await prisma.desiredEvent.count({
         where: { eventId }
       });
 
       const capacityWarning = event.ticketsAvailable ? eventSignups >= event.ticketsAvailable : false;
 
       // Create the user event
-      const userEvent = await prisma.userEvent.create({
+      const userEvent = await prisma.desiredEvent.create({
         data: {
           userId,
           eventId
@@ -153,7 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'User ID and Event ID are required' });
       }
 
-      const userEvent = await prisma.userEvent.findUnique({
+      const userEvent = await prisma.desiredEvent.findUnique({
         where: {
           userId_eventId: {
             userId,
@@ -166,7 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'User event not found' });
       }
 
-      await prisma.userEvent.delete({
+      await prisma.desiredEvent.delete({
         where: {
           userId_eventId: {
             userId,

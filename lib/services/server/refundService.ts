@@ -184,6 +184,8 @@ export class RefundService {
         recipient: ticket.recipient,
         purchaser: ticket.purchaser_email,
         createdAt: ticket.created_at,
+        needsRefund: true, // These are duplicates that need refunds
+        isRefunded: false, // Not yet refunded
       }));
 
     return { refundTickets };

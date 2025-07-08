@@ -116,7 +116,7 @@ async function performDifferentialUpdate(
       isCanceled: true,
       _count: {
         select: {
-          userEvents: true
+          desiredEvents: true
         }
       }
     }
@@ -211,7 +211,7 @@ async function performDifferentialUpdate(
   for (const existingEvent of existingEvents) {
     if (!newEventIds.has(existingEvent.id) && !existingEvent.isCanceled) {
       try {
-        if (existingEvent._count.userEvents > 0) {
+        if (existingEvent._count.desiredEvents > 0) {
           // Event has users - mark as canceled
           await prisma.event.update({
             where: { id: existingEvent.id },
@@ -244,7 +244,7 @@ async function performDifferentialUpdate(
     const canceledEventsWithoutUsers = await prisma.event.findMany({
       where: {
         isCanceled: true,
-        userEvents: {
+        desiredEvents: {
           none: {}
         }
       }
