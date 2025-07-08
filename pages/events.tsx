@@ -2,6 +2,8 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
+import { EventService } from "@/lib/services/client/eventService";
+import { UserEventService } from "@/lib/services/client/userEventService";
 
 interface Event {
   id: string;
@@ -92,13 +94,7 @@ export default function EventsPage() {
 
   const fetchFilterOptions = async () => {
     try {
-      const response = await fetch('/api/filter-options');
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch filter options');
-      }
-      
+      const data = await EventService.getFilterOptions();
       setFilterOptions(data);
     } catch (err) {
       console.error('Error fetching filter options:', err);
@@ -108,41 +104,19 @@ export default function EventsPage() {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '100'
-      });
       
-      if (selectedDay !== 'All Days') {
-        params.append('day', selectedDay);
-      }
+      const filters = {
+        page: currentPage,
+        limit: 100,
+        day: selectedDay !== 'All Days' ? selectedDay : undefined,
+        search: searchTerm.trim() || undefined,
+        startTime: startTime.trim() || undefined,
+        endTime: endTime.trim() || undefined,
+        ageRatings: selectedAgeRatings.length > 0 ? selectedAgeRatings.join(',') : undefined,
+        eventTypes: selectedEventTypes.length > 0 ? selectedEventTypes.join(',') : undefined,
+      };
 
-      if (searchTerm.trim()) {
-        params.append('search', searchTerm.trim());
-      }
-
-      if (startTime.trim()) {
-        params.append('startTime', startTime.trim());
-      }
-
-      if (endTime.trim()) {
-        params.append('endTime', endTime.trim());
-      }
-
-      if (selectedAgeRatings.length > 0) {
-        params.append('ageRatings', selectedAgeRatings.join(','));
-      }
-
-      if (selectedEventTypes.length > 0) {
-        params.append('eventTypes', selectedEventTypes.join(','));
-      }
-
-      const response = await fetch(`/api/events?${params}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch events');
-      }
+      const data = await EventService.getEvents(filters);
       
       setEvents(data.events);
       setPagination(data.pagination);
@@ -157,13 +131,7 @@ export default function EventsPage() {
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/user-events?userId=${user.id}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch user events');
-      }
-      
+      const data = await UserEventService.getUserEvents(user.id);
       setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
     } catch (err) {
       console.error('Error fetching user events:', err);
@@ -238,19 +206,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id, eventId }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add event');
-      }
+      const data = await UserEventService.addUserEvent(user.id, eventId);
 
       // Check for conflicts or capacity warnings
       if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
@@ -293,13 +249,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      await fetch('/api/user-events', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id, eventId: conflictModal.eventId }),
-      });
+      await UserEventService.removeUserEvent(user.id, conflictModal.eventId);
     } catch (err) {
       console.error('Error removing event:', err);
     }
@@ -317,19 +267,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id, eventId }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to remove event');
-      }
+      await UserEventService.removeUserEvent(user.id, eventId);
 
       // Refresh user events
       await fetchUserEvents();

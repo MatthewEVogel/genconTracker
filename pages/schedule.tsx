@@ -5,6 +5,9 @@ import useUserStore from "@/store/useUserStore";
 import Timeline from "@/components/Timeline";
 import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
+import { ScheduleService } from "@/lib/services/client/scheduleService";
+import { UserEventService } from "@/lib/services/client/userEventService";
+import { RegistrationTimerService } from "@/lib/services/client/registrationTimerService";
 
 interface Event {
   id: string;
@@ -71,13 +74,7 @@ export default function SchedulePage() {
 
   const fetchScheduleData = async () => {
     try {
-      const response = await fetch('/api/schedule');
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch schedule data');
-      }
-      
+      const data = await ScheduleService.getScheduleData();
       setScheduleData(data.scheduleData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -88,13 +85,7 @@ export default function SchedulePage() {
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/user-events?userId=${user.id}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch user events');
-      }
-      
+      const data = await UserEventService.getUserEvents(user.id);
       setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -107,27 +98,15 @@ export default function SchedulePage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id, eventId }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add event');
-      }
+      const data = await UserEventService.addUserEvent(user.id, eventId);
 
       // Check for conflicts or capacity warnings
-      if (data.conflicts.length > 0 || data.capacityWarning) {
+      if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
         setConflictModal({
           show: true,
           eventId,
-          conflicts: data.conflicts,
-          capacityWarning: data.capacityWarning
+          conflicts: data.conflicts || [],
+          capacityWarning: data.capacityWarning || false
         });
         return;
       }
@@ -144,19 +123,7 @@ export default function SchedulePage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id, eventId }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to remove event');
-      }
+      await UserEventService.removeUserEvent(user.id, eventId);
 
       // Success - refresh data
       await fetchScheduleData();
@@ -178,13 +145,7 @@ export default function SchedulePage() {
 
   const fetchRegistrationTimer = async () => {
     try {
-      const response = await fetch('/api/registration-timer');
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch registration timer');
-      }
-      
+      const data = await RegistrationTimerService.getRegistrationTimer();
       setRegistrationTimer(data.timer);
     } catch (err) {
       console.error('Error fetching registration timer:', err);
@@ -199,34 +160,18 @@ export default function SchedulePage() {
       // Get the browser's timezone offset in minutes (e.g. -240 for EDT)
       const timezoneOffsetMinutes = new Date().getTimezoneOffset();
 
-      const method = registrationTimer ? 'PUT' : 'POST';
-      const body = registrationTimer
-        ? {
-            id: registrationTimer.id,
-            registrationDate: newTimerDate,    // "YYYY-MM-DDTHH:MM"
-            userId: user.id,
-            timezoneOffsetMinutes,             // Include timezone offset
-          }
-        : {
-            registrationDate: newTimerDate,
-            userId: user.id,
-            timezoneOffsetMinutes,             // Include timezone offset
-          };
+      const timerData = {
+        id: registrationTimer?.id,
+        registrationDate: newTimerDate,
+        userId: user.id,
+        timezoneOffsetMinutes,
+      };
 
       // Debug: Log the payload being sent
-      console.log('Sending payload:', body);
+      console.log('Sending payload:', timerData);
       console.log('timezoneOffsetMinutes:', timezoneOffsetMinutes);
 
-      const response = await fetch('/api/registration-timer', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to set registration timer');
-      }
+      const data = await RegistrationTimerService.setRegistrationTimer(timerData);
 
       setRegistrationTimer(data.timer);
       setShowTimerModal(false);
