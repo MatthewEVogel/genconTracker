@@ -54,18 +54,31 @@ export interface RemoveEventResponse {
 export class ScheduleService {
   // Get schedule data for all users
   static async getScheduleData(): Promise<ScheduleResponse> {
-    const users = await prisma.user.findMany({
-      include: {
-        desiredEvents: {
-          include: {
-            event: true
+    try {
+      console.log('ScheduleService: Starting database query for users');
+      const users = await prisma.user.findMany({
+        include: {
+          desiredEvents: {
+            include: {
+              event: true
+            }
           }
         }
-      }
-    });
+      });
 
-    const scheduleData = this.transformUsersToScheduleData(users);
-    return { scheduleData };
+      console.log('ScheduleService: Found', users.length, 'users');
+      console.log('ScheduleService: User desired events counts:', users.map(u => ({
+        user: u.email,
+        desiredEvents: u.desiredEvents.length
+      })));
+
+      const scheduleData = this.transformUsersToScheduleData(users);
+      console.log('ScheduleService: Transformed to', scheduleData.length, 'schedule users');
+      return { scheduleData };
+    } catch (error) {
+      console.error('ScheduleService: Database error:', error);
+      throw error;
+    }
   }
 
   // Get events for a specific user
