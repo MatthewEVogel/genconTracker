@@ -157,16 +157,16 @@ export default function EventsPage() {
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/user-events?userId=${user.id}`);
+      const response = await fetch(`/api/desired-events?userId=${user.id}`);
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch user events');
+        throw new Error(data.error || 'Failed to fetch desired events');
       }
       
-      setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
+      setUserEventIds(data.desiredEventIds);
     } catch (err) {
-      console.error('Error fetching user events:', err);
+      console.error('Error fetching desired events:', err);
     }
   };
 
@@ -238,7 +238,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
+      const response = await fetch('/api/desired-events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -269,7 +269,7 @@ export default function EventsPage() {
       await fetchUserEvents();
       
       // Show success message
-      alert('Event added to your schedule!');
+      alert('Event added to your desired list!');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -285,7 +285,7 @@ export default function EventsPage() {
       conflicts: [],
       capacityWarning: false
     });
-    alert('Event added to your schedule with conflicts noted!');
+    alert('Event added to your desired list with conflicts noted!');
   };
 
   const handleCancelAddEvent = async () => {
@@ -293,7 +293,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      await fetch('/api/user-events', {
+      await fetch('/api/desired-events', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -317,7 +317,7 @@ export default function EventsPage() {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/user-events', {
+      const response = await fetch('/api/desired-events', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -335,7 +335,7 @@ export default function EventsPage() {
       await fetchUserEvents();
       
       // Show success message
-      alert('Event removed from your schedule!');
+      alert('Event removed from your desired list!');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -392,7 +392,7 @@ export default function EventsPage() {
             Browse GenCon Events
           </h2>
           <p className="text-gray-600 mb-4">
-            Search, filter by day, and add events to your schedule
+            Search, filter by day, and add events to your desired list
           </p>
 
           {/* Search Bar */}
@@ -715,14 +715,14 @@ export default function EventsPage() {
                           onClick={() => handleRemoveEvent(event.id)}
                           className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm font-medium"
                         >
-                          Remove from Schedule
+                          Remove from Desired List
                         </button>
                       ) : (
                         <button
                           onClick={() => handleAddEvent(event.id)}
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
                         >
-                          Add to Schedule
+                          Add to Desired List
                         </button>
                       )}
                     </div>
@@ -802,7 +802,7 @@ export default function EventsPage() {
               </h3>
               
               <p className="text-gray-700 mb-3">
-                <strong>{conflictModal.eventTitle}</strong> has been added to your schedule, but there are conflicts:
+                <strong>{conflictModal.eventTitle}</strong> has been added to your desired list, but there are conflicts:
               </p>
 
               {conflictModal.conflicts.length > 0 && (
@@ -838,7 +838,7 @@ export default function EventsPage() {
               )}
 
               <p className="text-gray-700 text-sm">
-                The event has been added to your schedule. Conflicting events will be shown in red on your timeline.
+                The event has been added to your desired list. Conflicting events will be shown in red on your timeline.
               </p>
             </div>
 
