@@ -4,6 +4,30 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// Helper function to parse date from MM/DD/YYYY HH:MM AM/PM format
+function parseDateTime(dateStr) {
+  if (!dateStr || dateStr.trim() === '') return null;
+  try {
+    // Parse date like "07/31/2025 09:00 AM" to ISO format
+    const date = new Date(dateStr.trim());
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString();
+  } catch (error) {
+    return null;
+  }
+}
+
+// Helper function to parse cost
+function parseCost(costStr) {
+  if (!costStr || costStr.trim() === '' || costStr.trim() === '0') return null;
+  try {
+    const cost = parseFloat(costStr.trim());
+    return isNaN(cost) ? null : cost;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function importEvents() {
   try {
     console.log('Starting events import...');
@@ -43,13 +67,13 @@ async function importEvents() {
           shortDescription: columns[3]?.trim() || null, // Short Description
           eventType: columns[5]?.trim() || null, // Event Type
           gameSystem: columns[6]?.trim() || null, // Game System
-          startDateTime: columns[14]?.trim() || null, // Start Date & Time
+          startDateTime: parseDateTime(columns[14]), // Start Date & Time
           duration: columns[15]?.trim() || null, // Duration
-          endDateTime: columns[16]?.trim() || null, // End Date & Time
+          endDateTime: parseDateTime(columns[16]), // End Date & Time
           ageRequired: columns[10]?.trim() || null, // Age Required
           experienceRequired: columns[11]?.trim() || null, // Experience Required
           materialsRequired: columns[12]?.trim() || null, // Materials Required
-          cost: columns[25]?.trim() || null, // Cost $
+          cost: parseCost(columns[25]), // Cost $
           location: columns[26]?.trim() || null, // Location
           ticketsAvailable: columns[30] ? parseInt(columns[30].trim()) || null : null, // Tickets Available
         };
@@ -60,7 +84,7 @@ async function importEvents() {
         
         imported++;
         
-        if (imported % 100 === 0) {
+        if (imported % 1000 === 0) {
           console.log(`Imported ${imported} events...`);
         }
         
