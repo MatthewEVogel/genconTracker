@@ -1,1 +1,2 @@
-Force deployment trigger: 2025-07-08 16:40:00
+Force deployment: 2025-07-09 14:19:45
+This file forces Vercel to redeploy with updated Prisma schema and client generation.
