@@ -2,6 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/events": "pages/api/events.js",
-  "/api/filter-options": "pages/api/filter-options.js"
+  "/": "pages/index.js",
+  "/schedule": "pages/schedule.js",
+  "/events": "pages/events.js"
 }
