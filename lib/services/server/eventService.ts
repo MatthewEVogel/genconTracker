@@ -164,7 +164,7 @@ export class EventService {
       startDateTime: event.startDateTime?.toISOString() || null,
       endDateTime: event.endDateTime?.toISOString() || null,
       canceledAt: event.canceledAt?.toISOString() || null,
-      cost: event.cost?.toString() || null,
+      cost: event.cost ? event.cost.toNumber().toString() : null,
     };
   }
 
@@ -193,6 +193,10 @@ export class EventService {
           const eventDate = event.startDateTime instanceof Date 
             ? event.startDateTime 
             : new Date(event.startDateTime);
+          
+          // Check if date is valid
+          if (isNaN(eventDate.getTime())) return false;
+          
           const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'long' });
           return dayOfWeek === filters.day;
         } catch {

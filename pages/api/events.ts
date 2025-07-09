@@ -24,7 +24,10 @@ export default async function handler(
       return res.status(200).json(result);
     } catch (error) {
       console.error('Error fetching events:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   } else {
     res.setHeader('Allow', ['GET']);
