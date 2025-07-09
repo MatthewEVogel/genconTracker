@@ -1,190 +1,159 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("POSTGRES_PRISMA_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// 1. USER LIST - All users and their info
 model User {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  isAdmin   Boolean  @default(false)
-  
-  // OAuth fields
-  googleId  String?  @unique
-  provider  String   @default("manual") // "manual" or "google"
-  image     String?  // Profile picture URL
-  
-  // Notification settings
-  phoneNumber String?
-  emailNotifications Boolean @default(false)
-  textNotifications Boolean @default(false)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relationships
-  desiredEvents   DesiredEvent[]
-  purchasedEvents PurchasedEvent[]
-  refundedEvents  RefundedEvent[]
-  
+  id                 String           @id(map: "User_pkey") @default(uuid())
+  firstName          String
+  lastName           String
+  email              String           @unique(map: "User_email_key")
+  isAdmin            Boolean          @default(false)
+  googleId           String?          @unique(map: "User_googleId_key")
+  provider           String           @default("manual")
+  image              String?
+  createdAt          DateTime         @default(now())
+  emailNotifications Boolean          @default(false)
+  phoneNumber        String?
+  textNotifications  Boolean          @default(false)
+  updatedAt          DateTime         @default(now()) @updatedAt
+  desiredEvents      DesiredEvent[]
+  purchasedEvents    PurchasedEvent[]
+  refundedEvents     RefundedEvent[]
+
   @@map("users")
 }
 
-// 2. EVENTS LIST - All available events
 model Event {
-  id                String   @id // Game ID from TSV (e.g. RPG25ND272941)
-  title             String
-  shortDescription  String?
-  eventType         String?
-  gameSystem        String?
-  startDateTime     DateTime?
-  endDateTime       DateTime?
-  duration          String?  // Keep as string for display purposes
-  ageRequired       String?
+  id                 String           @id(map: "Event_pkey")
+  title              String
+  shortDescription   String?
+  eventType          String?
+  gameSystem         String?
+  duration           String?
+  ageRequired        String?
   experienceRequired String?
-  materialsRequired String?
-  cost              Decimal? // Use Decimal for monetary values
-  location          String?
-  ticketsAvailable  Int?
-  priority          Int      @default(1) // 1=Normal, 2=Important, 3=Critical
-  isCanceled        Boolean  @default(false)
-  canceledAt        DateTime?
-  lastUpdated       DateTime @default(now()) @updatedAt
-  createdAt         DateTime @default(now())
-  
-  // Relationships
-  desiredEvents   DesiredEvent[]
-  purchasedEvents PurchasedEvent[]
-  refundedEvents  RefundedEvent[]
-  
+  materialsRequired  String?
+  location           String?
+  ticketsAvailable   Int?
+  priority           Int              @default(1)
+  isCanceled         Boolean          @default(false)
+  canceledAt         DateTime?
+  lastUpdated        DateTime         @default(now()) @updatedAt
+  createdAt          DateTime         @default(now())
+  startDateTime      DateTime?
+  endDateTime        DateTime?
+  cost               Decimal?         @db.Decimal(10, 2)
+  desiredEvents      DesiredEvent[]
+  purchasedEvents    PurchasedEvent[]
+  refundedEvents     RefundedEvent[]
+
   @@map("events")
 }
 
-// 3. DESIRED EVENTS - Events that users want (currently "schedule")
 model DesiredEvent {
-  id        String   @id @default(uuid())
+  id        String   @id(map: "UserEvent_pkey") @default(uuid())
   userId    String
   eventId   String
-  priority  Int      @default(1) // User's priority for this event
-  notes     String?  // User notes about this event
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relationships
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priority  Int      @default(1)
+  notes     String?
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, eventId])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId], map: "UserEvent_userId_eventId_key")
   @@map("desired_events")
 }
 
-// 4. PURCHASED EVENTS - Events that users have actually purchased
 model PurchasedEvent {
   id           String   @id @default(uuid())
   userId       String
-  eventId      String   // Links to Event.id
-  recipient    String   // Who the ticket is for
+  eventId      String
+  recipient    String
   purchaseDate DateTime @default(now())
-  cost         Decimal? // Actual cost paid (may differ from event cost)
-  confirmation String?  // Purchase confirmation number
+  cost         Decimal? @db.Decimal(10, 2)
+  confirmation String?
   createdAt    DateTime @default(now())
-  
-  // Relationships
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([eventId])
   @@index([userId])
   @@map("purchased_events")
 }
 
-// 5. REFUNDED EVENTS - Events that have been refunded
 model RefundedEvent {
-  id              String   @id @default(uuid())
-  userId          String
-  eventId         String   // Links to Event.id
-  recipient       String   // Who the original ticket was for
-  originalCost    Decimal? // Original purchase cost
-  refundAmount    Decimal? // Amount refunded (may be different from original)
-  purchaseDate    DateTime // When it was originally purchased
-  refundDate      DateTime @default(now())
-  refundReason    String?  // Reason for refund
-  confirmation    String?  // Refund confirmation number
-  createdAt       DateTime @default(now())
-  
-  // Relationships
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
+  id           String   @id @default(uuid())
+  userId       String
+  eventId      String
+  recipient    String
+  originalCost Decimal? @db.Decimal(10, 2)
+  refundAmount Decimal? @db.Decimal(10, 2)
+  purchaseDate DateTime
+  refundDate   DateTime @default(now())
+  refundReason String?
+  confirmation String?
+  createdAt    DateTime @default(now())
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([eventId])
   @@index([userId])
   @@map("refunded_events")
 }
 
-// Keep existing models that are still needed for other functionality
 model RegistrationTimer {
-  id              String   @id @default(uuid())
+  id               String   @id @default(uuid())
   registrationDate DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String   // User ID of admin who set it
-  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String
+
   @@map("registration_timer")
 }
 
-// Legacy support - can be removed after migration
 model TicketAssignment {
-  id              String   @id @default(uuid())
-  userId          String
-  eventId         String
-  calculationId   String
-  buyingFor       String   // JSON string of user names array
-  priority        Int
-  cost            String
-  createdAt       DateTime @default(now())
-  
-  calculation     CalculationRun @relation(fields: [calculationId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, eventId, calculationId])
+  id            String         @id(map: "TicketAssignment_pkey") @default(uuid())
+  userId        String
+  eventId       String
+  calculationId String
+  buyingFor     String
+  priority      Int
+  cost          String
+  createdAt     DateTime       @default(now())
+  calculation   CalculationRun @relation(fields: [calculationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, calculationId], map: "TicketAssignment_userId_eventId_calculationId_key")
   @@map("ticket_assignments")
 }
 
 model CalculationRun {
-  id              String   @id @default(uuid())
-  createdAt       DateTime @default(now())
-  totalUsers      Int
-  totalEvents     Int
-  errors          String   // JSON string of error messages array
-  
-  assignments     TicketAssignment[]
-  
+  id          String             @id(map: "CalculationRun_pkey") @default(uuid())
+  createdAt   DateTime           @default(now())
+  totalUsers  Int
+  totalEvents Int
+  errors      String
+  assignments TicketAssignment[]
+
   @@map("calculation_runs")
 }
 
-// Legacy support - can be removed after migration  
 model PurchasedTicket {
-  id          String   @id @default(uuid())
-  eventId     String   // RPG25ND272941 (first 13 chars)
-  eventName   String   // Dread: Victim's Choice
-  recipient   String   // Liv Benjamin (from ticket)
-  purchaser   String   // Matthew Vogel (logged-in user)
+  id           String   @id(map: "PurchasedTicket_pkey") @default(uuid())
+  eventId      String
+  eventName    String
+  recipient    String
+  purchaser    String
   purchaseDate DateTime @default(now())
-  needsRefund Boolean  @default(false)
-  isRefunded  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
-  @@index([eventId])
+  needsRefund  Boolean  @default(false)
+  isRefunded   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([eventId], map: "PurchasedTicket_eventId_idx")
   @@map("purchased_tickets")
 }
