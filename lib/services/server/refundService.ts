@@ -1,15 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { parseGenConTickets } from '@/utils/ticketParser';
 
-export interface RefundTicket {
+export interface PurchasedEvent {
   id: string;
   eventId: string;
-  eventName: string;
   recipient: string;
   purchaser: string;
-  createdAt: Date;
-  needsRefund: boolean;
-  isRefunded: boolean;
 }
 
 export interface ParsedTicket {
@@ -18,35 +14,31 @@ export interface ParsedTicket {
   recipient: string;
 }
 
-export interface RefundTicketsResponse {
-  refundTickets: RefundTicket[];
+export interface PurchasedEventsResponse {
+  purchasedEvents: PurchasedEvent[];
 }
 
 export interface ParseTicketsResponse {
   message: string;
   ticketsAdded: number;
-  refundTickets: RefundTicket[];
+  purchasedEvents: PurchasedEvent[];
 }
 
-export interface MarkRefundedResponse {
+export interface DeleteTicketResponse {
   message: string;
-  refundTickets: RefundTicket[];
+  purchasedEvents: PurchasedEvent[];
 }
 
 export class RefundService {
-  // Get all tickets that need refunds
-  static async getRefundTickets(): Promise<RefundTicketsResponse> {
-    const refundTickets = await prisma.purchasedTicket.findMany({
-      where: {
-        needsRefund: true,
-        isRefunded: false
-      },
+  // Get all purchased events (replaces getRefundTickets)
+  static async getAllPurchasedEvents(): Promise<PurchasedEventsResponse> {
+    const purchasedEvents = await prisma.purchasedEvents.findMany({
       orderBy: {
-        createdAt: 'desc'
+        eventId: 'asc'
       }
     });
 
-    return { refundTickets };
+    return { purchasedEvents };
   }
 
   // Parse tickets from GenCon purchase text and save them
@@ -70,10 +62,9 @@ export class RefundService {
     // Save tickets to database
     const savedTickets = [];
     for (const ticket of parsedTickets) {
-      const savedTicket = await prisma.purchasedTicket.create({
+      const savedTicket = await prisma.purchasedEvents.create({
         data: {
           eventId: ticket.eventId,
-          eventName: ticket.eventName,
           recipient: ticket.recipient,
           purchaser: `${user.firstName} ${user.lastName}`,
         }
@@ -81,50 +72,39 @@ export class RefundService {
       savedTickets.push(savedTicket);
     }
 
-    // Recalculate duplicates across ALL tickets in the database
-    await this.recalculateDuplicates();
-
-    // Get updated refund list
-    const refundTickets = await this.getRefundTickets();
+    // Get updated list
+    const allPurchasedEvents = await this.getAllPurchasedEvents();
 
     return {
       message: `Successfully parsed ${parsedTickets.length} tickets`,
       ticketsAdded: savedTickets.length,
-      refundTickets: refundTickets.refundTickets
+      purchasedEvents: allPurchasedEvents.purchasedEvents
     };
   }
 
-  // Mark a ticket as refunded
-  static async markTicketAsRefunded(ticketId: string): Promise<MarkRefundedResponse> {
-    // Mark ticket as refunded
-    const updatedTicket = await prisma.purchasedTicket.update({
-      where: { id: ticketId },
-      data: { 
-        isRefunded: true,
-        needsRefund: false
-      }
+  // Delete a purchased event (admin only)
+  static async deletePurchasedEvent(eventId: string): Promise<DeleteTicketResponse> {
+    await prisma.purchasedEvents.delete({
+      where: { id: eventId }
     });
 
-    // Recalculate duplicates after removing this ticket
-    await this.recalculateDuplicates();
+    // Get updated list
+    const allPurchasedEvents = await this.getAllPurchasedEvents();
 
-    // Get updated refund list
-    const refundTickets = await this.getRefundTickets();
-
-    return {
-      message: 'Ticket marked as refunded',
-      refundTickets: refundTickets.refundTickets
+    return { 
+      message: 'Event deleted successfully',
+      purchasedEvents: allPurchasedEvents.purchasedEvents
     };
   }
 
-  // Get all purchased tickets (for admin purposes)
+  // Get all purchased events (for admin purposes)
   static async getAllPurchasedTickets() {
-    return await prisma.purchasedTicket.findMany({
-      orderBy: { createdAt: 'desc' }
+    return await prisma.purchasedEvents.findMany({
+      orderBy: { eventId: 'asc' }
     });
   }
 
-  // Get purchased tickets by user email
+  // Get purchased events by user email
   static async getPurchasedTicketsByUser(userEmail: string) {
     const user = await prisma.user.findUnique({
       where: { email: userEmail }
@@ -134,74 +114,22 @@ export class RefundService {
       throw new Error('User not found');
     }
 
-    return await prisma.purchasedTicket.findMany({
+    return await prisma.purchasedEvents.findMany({
       where: {
         purchaser: `${user.firstName} ${user.lastName}`
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { eventId: 'asc' }
     });
   }
 
-  // Delete a purchased ticket (admin only)
-  static async deletePurchasedTicket(ticketId: string) {
-    await prisma.purchasedTicket.delete({
-      where: { id: ticketId }
-    });
-
-    // Recalculate duplicates after deletion
-    await this.recalculateDuplicates();
-
-    return { message: 'Ticket deleted successfully' };
+  // Placeholder methods for backwards compatibility
+  static async markTicketAsRefunded(ticketId: string): Promise<DeleteTicketResponse> {
+    // In the new system, this just deletes the ticket
+    return await this.deletePurchasedEvent(ticketId);
   }
 
-  // Private method to recalculate duplicates across all tickets
-  private static async recalculateDuplicates(): Promise<void> {
-    // Reset all needsRefund flags
-    await prisma.purchasedTicket.updateMany({
-      data: { needsRefund: false }
-    });
-
-    // Get all non-refunded tickets
-    const allTickets = await prisma.purchasedTicket.findMany({
-      where: { isRefunded: false },
-      orderBy: { createdAt: 'asc' } // Keep earliest tickets
-    });
-
-    console.log('DEBUG: Total tickets found:', allTickets.length);
-
-    // Group by eventId + recipient combination
-    const ticketGroups = new Map<string, any[]>();
-    allTickets.forEach(ticket => {
-      // Create a unique key combining eventId and recipient
-      const key = `${ticket.eventId}|${ticket.recipient}`;
-      if (!ticketGroups.has(key)) {
-        ticketGroups.set(key, []);
-      }
-      ticketGroups.get(key)!.push(ticket);
-    });
-
-    console.log('DEBUG: Ticket groups:', Array.from(ticketGroups.entries()).map(([key, tickets]) => ({
-      key,
-      count: tickets.length,
-      tickets: tickets.map(t => ({ id: t.id, eventId: t.eventId, recipient: t.recipient, purchaser: t.purchaser }))
-    })));
-
-    // Mark duplicates for refund
-    for (const [key, tickets] of ticketGroups) {
-      if (tickets.length > 1) {
-        console.log(`DEBUG: Found ${tickets.length} duplicates for key: ${key}`);
-        // Multiple tickets for same event+recipient combination (duplicate!)
-        // Keep the first ticket (earliest), mark others for refund
-        const ticketsToRefund = tickets.slice(1);
-        
-        for (const ticket of ticketsToRefund) {
-          console.log(`DEBUG: Marking ticket ${ticket.id} for refund (${ticket.eventId} - ${ticket.recipient})`);
-          await prisma.purchasedTicket.update({
-            where: { id: ticket.id },
-            data: { needsRefund: true }
-          });
-        }
-      }
-    }
+  static async getRefundTickets(): Promise<PurchasedEventsResponse> {
+    // In the new system, this returns all purchased events
+    return await this.getAllPurchasedEvents();
   }
 }

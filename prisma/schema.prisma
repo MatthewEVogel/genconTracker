@@ -176,3 +176,12 @@ model PurchasedTicket {
   
   @@index([eventId])
 }
+
+model PurchasedEvents {
+  id          String   @id @default(uuid())
+  eventId     String   // Event ID - references EventsList
+  recipient   String   // Recipient name (from ticket)
+  purchaser   String   // Purchaser name (logged-in user)
+  
+  @@index([eventId])
+}

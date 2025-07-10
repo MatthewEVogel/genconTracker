@@ -29,10 +29,10 @@ export default async function handler(
     }
 
     // Count tickets before deletion
-    const ticketCount = await prisma.purchasedTicket.count();
+    const ticketCount = await prisma.purchasedEvents.count();
 
-    // Delete all purchased tickets
-    await prisma.purchasedTicket.deleteMany({});
+    // Delete all purchased events
+    await prisma.purchasedEvents.deleteMany({});
 
     res.status(200).json({
       message: `Successfully deleted ${ticketCount} tickets`,
