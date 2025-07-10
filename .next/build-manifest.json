@@ -5,8 +5,8 @@
   "devFiles": [],
   "ampDevFiles": [],
   "lowPriorityFiles": [
-    "static/OSnnJOYd7R1fClMPEvRPw/_buildManifest.js",
-    "static/OSnnJOYd7R1fClMPEvRPw/_ssgManifest.js"
+    "static/0zvI9uxlIlvm2SoXJEq7w/_buildManifest.js",
+    "static/0zvI9uxlIlvm2SoXJEq7w/_ssgManifest.js"
   ],
   "rootMainFiles": [],
   "rootMainFilesTree": {},
@@ -40,7 +40,7 @@
       "static/chunks/webpack-8cac0b4b405cede1.js",
       "static/chunks/framework-2f335d22a7318891.js",
       "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/events-f8be1595381c8817.js"
+      "static/chunks/pages/events-5de95e496b508ad3.js"
     ],
     "/refunds": [
       "static/chunks/webpack-8cac0b4b405cede1.js",

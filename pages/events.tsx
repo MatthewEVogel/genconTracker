@@ -523,11 +523,9 @@ export default function EventsPage() {
                           </svg>
                           <span className="text-red-800 font-semibold text-sm">CANCELED</span>
                         </div>
-                        {event.canceledAt && (
-                          <p className="text-red-700 text-xs mt-1">
-                            Canceled on {new Date(event.canceledAt).toLocaleDateString()}
-                          </p>
-                        )}
+                        <p className="text-red-700 text-xs mt-1">
+                          This event has been canceled
+                        </p>
                       </div>
                     )}
 

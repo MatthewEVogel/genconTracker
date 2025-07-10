@@ -5,7 +5,7 @@ export interface Event {
   eventType?: string;
   gameSystem?: string;
   startDateTime?: string;
-  duration?: string;
+  duration?: string; // Now calculated from start/end times
   endDateTime?: string;
   ageRequired?: string;
   experienceRequired?: string;
@@ -13,8 +13,8 @@ export interface Event {
   cost?: string;
   location?: string;
   ticketsAvailable?: number;
+  priority?: number;
   isCanceled?: boolean;
-  canceledAt?: string;
 }
 
 export interface EventFilters {
@@ -48,7 +48,7 @@ export interface FilterOptions {
 }
 
 export class EventService {
-  // Get events with filtering and pagination
+  // Get events with filtering and pagination - now uses EventsList API
   static async getEvents(filters: EventFilters): Promise<EventsResponse> {
     const params = new URLSearchParams();
     
@@ -62,7 +62,7 @@ export class EventService {
     if (filters.eventTypes) params.append('eventTypes', filters.eventTypes);
     if (filters.maxParticipants) params.append('maxParticipants', filters.maxParticipants);
 
-    const response = await fetch(`/api/events?${params}`);
+    const response = await fetch(`/api/events-list?${params}`);
     const data = await response.json();
     
     if (!response.ok) {
@@ -72,9 +72,9 @@ export class EventService {
     return data;
   }
 
-  // Get filter options for age ratings and event types
+  // Get filter options for age ratings and event types - now uses EventsList API
   static async getFilterOptions(): Promise<FilterOptions> {
-    const response = await fetch('/api/filter-options');
+    const response = await fetch('/api/events-list-filter-options');
     const data = await response.json();
     
     if (!response.ok) {
@@ -84,9 +84,9 @@ export class EventService {
     return data;
   }
 
-  // Get single event by ID
+  // Get single event by ID - now uses EventsList API
   static async getEventById(eventId: string): Promise<Event> {
-    const response = await fetch(`/api/events/${eventId}`);
+    const response = await fetch(`/api/events-list/${eventId}`);
     const data = await response.json();
     
     if (!response.ok) {

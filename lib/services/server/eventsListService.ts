@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { EventsListService } from './eventsListService';
 
-export interface EventFilters {
+export interface EventsListFilters {
   page?: number;
   limit?: number;
   day?: string;
@@ -13,8 +12,8 @@ export interface EventFilters {
   maxParticipants?: string;
 }
 
-export interface EventsResponse {
-  events: any[];
+export interface EventsListResponse {
+  events: EventsListItem[];
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -24,26 +23,76 @@ export interface EventsResponse {
   };
 }
 
+export interface EventsListItem {
+  id: string;
+  title: string;
+  shortDescription?: string | null;
+  eventType?: string | null;
+  gameSystem?: string | null;
+  startDateTime?: string | null;
+  endDateTime?: string | null;
+  ageRequired?: string | null;
+  experienceRequired?: string | null;
+  materialsRequired?: string | null;
+  cost?: string | null;
+  location?: string | null;
+  ticketsAvailable?: number | null;
+  priority: number;
+  isCanceled: boolean;
+  duration?: string | null; // Calculated field
+}
+
 export interface FilterOptionsResponse {
   ageRatings: string[];
   eventTypes: string[];
 }
 
-export class EventService {
-  // Get events with filtering and pagination - now uses EventsList
-  static async getEvents(filters: EventFilters): Promise<EventsResponse> {
-    // Delegate to EventsListService
-    const result = await EventsListService.getEvents(filters);
-    
-    // Transform to maintain compatibility with existing interface
+export class EventsListService {
+  // Calculate duration from start and end times
+  static calculateDuration(startDateTime: string | null, endDateTime: string | null): string | null {
+    if (!startDateTime || !endDateTime) {
+      return null;
+    }
+
+    try {
+      const start = new Date(startDateTime);
+      const end = new Date(endDateTime);
+      
+      // Calculate difference in milliseconds
+      let diffMs = end.getTime() - start.getTime();
+      
+      // Handle events that cross day boundaries (end time is next day)
+      if (diffMs < 0) {
+        // Add 24 hours (86400000 ms) to handle day crossing
+        diffMs += 24 * 60 * 60 * 1000;
+      }
+      
+      // Convert to hours and minutes
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Format as "Xh Ym" or just "Xh" if no minutes
+      if (minutes === 0) {
+        return `${hours}h`;
+      } else {
+        return `${hours}h ${minutes}m`;
+      }
+    } catch (error) {
+      console.error('Error calculating duration:', error);
+      return null;
+    }
+  }
+
+  // Transform EventsList to include calculated duration
+  private static transformEventWithDuration(event: any): EventsListItem {
     return {
-      events: result.events,
-      pagination: result.pagination
+      ...event,
+      duration: this.calculateDuration(event.startDateTime, event.endDateTime)
     };
   }
 
-  // Legacy method - keeping for backward compatibility
-  static async getLegacyEvents(filters: EventFilters): Promise<EventsResponse> {
+  // Get events with filtering and pagination
+  static async getEvents(filters: EventsListFilters): Promise<EventsListResponse> {
     const page = filters.page || 1;
     const limit = filters.limit || 100;
     const skip = (page - 1) * limit;
@@ -63,7 +112,6 @@ export class EventService {
       eventType: true,
       gameSystem: true,
       startDateTime: true,
-      duration: true,
       endDateTime: true,
       ageRequired: true,
       experienceRequired: true,
@@ -71,10 +119,12 @@ export class EventService {
       cost: true,
       location: true,
       ticketsAvailable: true,
+      priority: true,
+      isCanceled: true,
     };
 
     if (hasFilters) {
-      const allEvents = await prisma.event.findMany({
+      const allEvents = await prisma.eventsList.findMany({
         orderBy: { startDateTime: 'asc' },
         select: eventSelect
       });
@@ -86,7 +136,7 @@ export class EventService {
       const totalPages = Math.ceil(totalEvents / limit);
 
       return {
-        events: paginatedEvents,
+        events: paginatedEvents.map(event => this.transformEventWithDuration(event)),
         pagination: {
           currentPage: page,
           totalPages,
@@ -96,9 +146,9 @@ export class EventService {
         }
       };
     } else {
-      const totalEvents = await prisma.event.count();
+      const totalEvents = await prisma.eventsList.count();
       
-      const events = await prisma.event.findMany({
+      const events = await prisma.eventsList.findMany({
         skip,
         take: limit,
         orderBy: { startDateTime: 'asc' },
@@ -108,7 +158,7 @@ export class EventService {
       const totalPages = Math.ceil(totalEvents / limit);
 
       return {
-        events,
+        events: events.map(event => this.transformEventWithDuration(event)),
         pagination: {
           currentPage: page,
           totalPages,
@@ -120,18 +170,53 @@ export class EventService {
     }
   }
 
-  // Get filter options for age ratings and event types - now uses EventsList
+  // Get filter options for age ratings and event types
   static async getFilterOptions(): Promise<FilterOptionsResponse> {
-    return await EventsListService.getFilterOptions();
+    const events = await prisma.eventsList.findMany({
+      select: {
+        ageRequired: true,
+        eventType: true,
+      }
+    });
+
+    const ageRatings = new Set<string>();
+    const eventTypes = new Set<string>();
+
+    events.forEach(event => {
+      if (event.ageRequired) {
+        ageRatings.add(event.ageRequired);
+      } else {
+        ageRatings.add('Not Specified');
+      }
+
+      if (event.eventType) {
+        eventTypes.add(event.eventType);
+      } else {
+        eventTypes.add('Not Specified');
+      }
+    });
+
+    return {
+      ageRatings: Array.from(ageRatings).sort(),
+      eventTypes: Array.from(eventTypes).sort()
+    };
   }
 
-  // Get single event by ID - now uses EventsList
-  static async getEventById(eventId: string) {
-    return await EventsListService.getEventById(eventId);
+  // Get single event by ID
+  static async getEventById(eventId: string): Promise<EventsListItem | null> {
+    const event = await prisma.eventsList.findUnique({
+      where: { id: eventId }
+    });
+
+    if (!event) {
+      return null;
+    }
+
+    return this.transformEventWithDuration(event);
   }
 
   // Private method to apply filters to events
-  private static applyFilters(events: any[], filters: EventFilters): any[] {
+  private static applyFilters(events: any[], filters: EventsListFilters): any[] {
     let filteredEvents = events;
 
     // Filter by search term
