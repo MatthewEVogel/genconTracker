@@ -12,27 +12,26 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
   const { user, logout } = useUserStore();
 
   const handleLogout = async () => {
-    try {
-      if (user?.provider === 'google') {
-        // For Google OAuth users, use NextAuth signOut with redirect
-        await signOut({ 
-          redirect: true,
-          callbackUrl: '/' 
-        });
-        // NextAuth will handle the redirect, so we don't need to do anything else
-        return;
-      } else {
-        // For regular users, just clear the store and redirect
-        logout();
-        router.push("/");
-      }
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Fallback: clear store and redirect even if there's an error
-      logout();
-      router.push("/");
+  try {
+    if (user?.provider === 'google') {
+      // do not auto-redirect, so we can clear our store first
+      const { url } = await signOut({
+        redirect: false,
+        callbackUrl: '/',
+      })
+      logout()               // clear Zustand store
+      router.push(url!)      // now navigate to callbackUrl
+      return
+    } else {
+      logout()
+      router.push('/')
     }
-  };
+  } catch (err) {
+    console.error(err)
+    logout()
+    router.push('/')
+  }
+}
 
   if (!user) {
     return null;
