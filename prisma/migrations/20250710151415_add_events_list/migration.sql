@@ -62,3 +62,6 @@ ALTER TABLE "EventTicketAssignment" ADD CONSTRAINT "EventTicketAssignment_events
 
 -- AddForeignKey
 ALTER TABLE "EventTicketAssignment" ADD CONSTRAINT "EventTicketAssignment_calculationId_fkey" FOREIGN KEY ("calculationId") REFERENCES "CalculationRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DesiredEvents" ADD CONSTRAINT "DesiredEvents_eventsListId_fkey" FOREIGN KEY ("eventsListId") REFERENCES "EventsList"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -8,10 +8,8 @@ import { RefundService } from '@/lib/services/client/refundService';
 interface RefundTicket {
   id: string;
   eventId: string;
-  eventName: string;
   recipient: string;
   purchaser: string;
-  createdAt: string;
 }
 
 export default function Refunds() {
@@ -38,7 +36,7 @@ export default function Refunds() {
   const loadRefundTickets = async () => {
     try {
       const data = await RefundService.getRefundTickets();
-      setRefundTickets(data.refundTickets || []);
+      setRefundTickets(data.purchasedEvents || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load refund tickets');
     }
@@ -72,7 +70,7 @@ export default function Refunds() {
 
     try {
       const data = await RefundService.markTicketAsRefunded(ticketId);
-      setRefundTickets(data.refundTickets || []);
+      setRefundTickets(data.purchasedEvents || []);
       setSuccess('Ticket marked as refunded');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to mark ticket as refunded');
@@ -180,13 +178,10 @@ export default function Refunds() {
                           <span className="text-red-600 font-medium mr-2">❌</span>
                           <div>
                             <p className="font-medium text-gray-900">
-                              {ticket.eventId} - {ticket.eventName}
+                              Event ID: {ticket.eventId}
                             </p>
                             <p className="text-sm text-gray-600">
                               Recipient: {ticket.recipient} | Purchased by: {ticket.purchaser}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Added: {new Date(ticket.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>

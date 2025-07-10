@@ -21,7 +21,7 @@ export interface PurchasedEventsResponse {
 export interface ParseTicketsResponse {
   message: string;
   ticketsAdded: number;
-  purchasedEvents: PurchasedEvent[];
+  refundTickets: PurchasedEvent[];
 }
 
 export interface DeleteTicketResponse {
@@ -31,7 +31,7 @@ export interface DeleteTicketResponse {
 
 export class RefundService {
   // Get all purchased events (replaces getRefundTickets)
-  static async getAllPurchasedEvents(): Promise<PurchasedEventsResponse> {
+  static async getRefundTickets(): Promise<PurchasedEventsResponse> {
     const purchasedEvents = await prisma.purchasedEvents.findMany({
       orderBy: {
         eventId: 'asc'
@@ -73,12 +73,12 @@ export class RefundService {
     }
 
     // Get updated list
-    const allPurchasedEvents = await this.getAllPurchasedEvents();
+    const allPurchasedEvents = await this.getRefundTickets();
 
     return {
       message: `Successfully parsed ${parsedTickets.length} tickets`,
       ticketsAdded: savedTickets.length,
-      purchasedEvents: allPurchasedEvents.purchasedEvents
+      refundTickets: allPurchasedEvents.purchasedEvents
     };
   }
 
@@ -89,7 +89,7 @@ export class RefundService {
     });
 
     // Get updated list
-    const allPurchasedEvents = await this.getAllPurchasedEvents();
+    const allPurchasedEvents = await this.getRefundTickets();
 
     return { 
       message: 'Event deleted successfully',
@@ -98,14 +98,14 @@ export class RefundService {
   }
 
   // Get all purchased events (for admin purposes)
-  static async getAllPurchasedTickets() {
+  static async getAllPurchasedEvents() {
     return await prisma.purchasedEvents.findMany({
       orderBy: { eventId: 'asc' }
     });
   }
 
   // Get purchased events by user email
-  static async getPurchasedTicketsByUser(userEmail: string) {
+  static async getPurchasedEventsByUser(userEmail: string) {
     const user = await prisma.user.findUnique({
       where: { email: userEmail }
     });
@@ -122,14 +122,9 @@ export class RefundService {
     });
   }
 
-  // Placeholder methods for backwards compatibility
+  // Backwards compatibility: mark as refunded = delete
   static async markTicketAsRefunded(ticketId: string): Promise<DeleteTicketResponse> {
     // In the new system, this just deletes the ticket
     return await this.deletePurchasedEvent(ticketId);
-  }
-
-  static async getRefundTickets(): Promise<PurchasedEventsResponse> {
-    // In the new system, this returns all purchased events
-    return await this.getAllPurchasedEvents();
   }
 }
