@@ -17,10 +17,10 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
   errors: string[];
 }> {
   try {
-    // Get all users with their events and priorities
+    // Get all users with their desired events and priorities
     const users = await prisma.user.findMany({
       include: {
-        userEvents: {
+        desiredEvents: {
           include: {
             event: true
           }
@@ -30,13 +30,13 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
 
     // Transform data for the algorithm
     const userEventData: UserEventData[] = users.flatMap(user =>
-      user.userEvents.map(userEvent => ({
+      user.desiredEvents.map(desiredEvent => ({
         userId: user.id,
         userName: `${user.firstName} ${user.lastName}`,
-        eventId: userEvent.event.id,
-        eventTitle: userEvent.event.title,
-        priority: userEvent.event.priority,
-        cost: userEvent.event.cost || '0'
+        eventId: desiredEvent.event.id,
+        eventTitle: desiredEvent.event.title,
+        priority: desiredEvent.event.priority,
+        cost: desiredEvent.event.cost || '0'
       }))
     );
 

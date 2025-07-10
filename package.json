@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run typecheck && next build",
     "postbuild": "prisma migrate deploy && prisma generate",
     "start": "next start",
     "lint": "next lint",
@@ -44,4 +45,5 @@
     "xlsx": "^0.18.5",
     "zustand": "^5.0.5"
   }
+  
 }
