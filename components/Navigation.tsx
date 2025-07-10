@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { signOut } from "next-auth/react";
 import useUserStore from "@/store/useUserStore";
 
 interface NavigationProps {
@@ -10,9 +11,26 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
   const router = useRouter();
   const { user, logout } = useUserStore();
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    try {
+      // Sign out from NextAuth first if using Google OAuth
+      if (user?.provider === 'google') {
+        await signOut({ redirect: false });
+      }
+      
+      // Clear Zustand store after NextAuth signout
+      logout();
+      
+      // Small delay to ensure cleanup is complete
+      setTimeout(() => {
+        router.push("/");
+      }, 100);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Clear store and redirect even if there's an error
+      logout();
+      router.push("/");
+    }
   };
 
   if (!user) {
