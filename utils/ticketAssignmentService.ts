@@ -59,7 +59,7 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
     });
 
     // Clear old assignments (keep only the latest calculation)
-    await prisma.ticketAssignment.deleteMany({
+    await prisma.eventTicketAssignment.deleteMany({
       where: {
         calculationId: {
           not: calculationRun.id
@@ -70,10 +70,10 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
     // Save new assignments to database
     const assignmentPromises = assignments.flatMap(assignment =>
       assignment.events.map(event =>
-        prisma.ticketAssignment.create({
+        prisma.eventTicketAssignment.create({
           data: {
             userId: assignment.userId,
-            eventId: event.eventId,
+            eventsListId: event.eventId,
             calculationId: calculationRun.id,
             buyingFor: JSON.stringify(event.buyingFor),
             priority: event.priority,
@@ -107,7 +107,7 @@ export async function getLatestTicketAssignments() {
     const latestCalculation = await prisma.calculationRun.findFirst({
       orderBy: { createdAt: 'desc' },
       include: {
-        assignments: {
+        eventAssignments: {
           include: {
             user: true,
             eventsList: true
@@ -123,7 +123,7 @@ export async function getLatestTicketAssignments() {
     // Transform to the expected format
     const userAssignments = new Map<string, any>();
 
-    for (const assignment of latestCalculation.assignments) {
+    for (const assignment of latestCalculation.eventAssignments) {
       if (!userAssignments.has(assignment.userId)) {
         userAssignments.set(assignment.userId, {
           userId: assignment.userId,
@@ -135,7 +135,7 @@ export async function getLatestTicketAssignments() {
 
       const userAssignment = userAssignments.get(assignment.userId);
       userAssignment.events.push({
-        eventId: assignment.eventId,
+        eventId: assignment.eventsListId,
         eventTitle: assignment.eventsList.title,
         priority: assignment.priority,
         buyingFor: JSON.parse(assignment.buyingFor),
@@ -173,7 +173,7 @@ export async function getUserTicketAssignment(userId: string) {
     }
 
     // Get assignments for this user
-    const assignments = await prisma.ticketAssignment.findMany({
+    const assignments = await prisma.eventTicketAssignment.findMany({
       where: {
         userId,
         calculationId: latestCalculation.id
@@ -216,7 +216,7 @@ export async function getUserTicketAssignment(userId: string) {
       userId,
       userName: `${assignments[0].user.firstName} ${assignments[0].user.lastName}`,
       events: assignments.map(assignment => ({
-        eventId: assignment.eventId,
+        eventId: assignment.eventsListId,
         eventTitle: assignment.eventsList.title,
         priority: assignment.priority,
         buyingFor: JSON.parse(assignment.buyingFor),
