@@ -12,26 +12,33 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
   const { user, logout } = useUserStore();
 
   const handleLogout = async () => {
-  try {
-    if (user?.provider === 'google') {
-      // do not auto-redirect, so we can clear our store first
-      const { url } = await signOut({
-        redirect: false,
-        callbackUrl: '/',
-      })
-      logout()               // clear Zustand store
-      router.push(url!)      // now navigate to callbackUrl
-      return
-    } else {
-      logout()
-      router.push('/')
+    try {
+      console.log('Logout initiated for user:', user);
+      
+      if (user?.provider === 'google') {
+        // do not auto-redirect, so we can clear our store first
+        console.log('Signing out Google user');
+        const { url } = await signOut({
+          redirect: false,
+          callbackUrl: '/',
+        });
+        console.log('NextAuth signOut completed, url:', url);
+        
+        logout();               // clear Zustand store
+        console.log('Store cleared, redirecting to:', url);
+        router.push(url!);      // now navigate to callbackUrl
+        return;
+      } else {
+        console.log('Signing out regular user');
+        logout();
+        router.push('/');
+      }
+    } catch (err) {
+      console.error('Error during logout:', err);
+      logout();
+      router.push('/');
     }
-  } catch (err) {
-    console.error(err)
-    logout()
-    router.push('/')
-  }
-}
+  };
 
   if (!user) {
     return null;
