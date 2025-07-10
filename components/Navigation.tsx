@@ -12,6 +12,7 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
   const { user, logout } = useUserStore();
 
   const handleLogout = async () => {
+    console.log("test");
     try {
       console.log('Logout initiated for user:', user);
       
