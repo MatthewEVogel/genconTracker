@@ -24,13 +24,21 @@ export default function LandingPage() {
         setUser(session.user as any);
         router.push("/schedule");
       } else if (user) {
-        // User is logged in via manual registration
-        router.push("/schedule");
+        // Check if user in store is a Google user but no NextAuth session
+        // This means they've been logged out from NextAuth but store wasn't cleared
+        if (user.provider === 'google') {
+          // Clear the store since NextAuth session is gone
+          logout();
+          setIsCheckingAuth(false);
+        } else {
+          // User is logged in via manual registration
+          router.push("/schedule");
+        }
       } else {
         setIsCheckingAuth(false);
       }
     }
-  }, [user, session, status, router, hasHydrated, setUser]);
+  }, [user, session, status, router, hasHydrated, setUser, logout]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

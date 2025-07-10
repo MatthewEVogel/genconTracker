@@ -1,70 +1,32 @@
 {
   "polyfillFiles": [
-    "static/chunks/polyfills-42372ed130431b0a.js"
+    "static/chunks/polyfills.js"
   ],
-  "devFiles": [],
+  "devFiles": [
+    "static/chunks/react-refresh.js"
+  ],
   "ampDevFiles": [],
   "lowPriorityFiles": [
-    "static/5T1D_sWLYq6ZteKd9jK5I/_buildManifest.js",
-    "static/5T1D_sWLYq6ZteKd9jK5I/_ssgManifest.js"
+    "static/development/_buildManifest.js",
+    "static/development/_ssgManifest.js"
   ],
   "rootMainFiles": [],
   "rootMainFilesTree": {},
   "pages": {
     "/": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/index-0785fb77fc934cb3.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/index.js"
     ],
     "/_app": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/css/fc254d98b0cffd89.css",
-      "static/chunks/pages/_app-a518b8dda43caf26.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/_app.js"
     ],
     "/_error": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/_error-41608b100cc61246.js"
-    ],
-    "/admin": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/admin-e874f14af1d0b4ac.js"
-    ],
-    "/events": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/events-5de95e496b508ad3.js"
-    ],
-    "/refunds": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/refunds-1fd03d2f21ed0305.js"
-    ],
-    "/schedule": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/schedule-317b1d6f451acbdb.js"
-    ],
-    "/settings": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/settings-c07ab97f8048e241.js"
-    ],
-    "/tickets": [
-      "static/chunks/webpack-8cac0b4b405cede1.js",
-      "static/chunks/framework-2f335d22a7318891.js",
-      "static/chunks/main-ef7adcb06c400f9e.js",
-      "static/chunks/pages/tickets-b34c3f1c79cc63cd.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/_error.js"
     ]
   },
   "ampFirstPages": []

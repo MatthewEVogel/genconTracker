@@ -13,21 +13,22 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
 
   const handleLogout = async () => {
     try {
-      // Sign out from NextAuth first if using Google OAuth
       if (user?.provider === 'google') {
-        await signOut({ redirect: false });
-      }
-      
-      // Clear Zustand store after NextAuth signout
-      logout();
-      
-      // Small delay to ensure cleanup is complete
-      setTimeout(() => {
+        // For Google OAuth users, use NextAuth signOut with redirect
+        await signOut({ 
+          redirect: true,
+          callbackUrl: '/' 
+        });
+        // NextAuth will handle the redirect, so we don't need to do anything else
+        return;
+      } else {
+        // For regular users, just clear the store and redirect
+        logout();
         router.push("/");
-      }, 100);
+      }
     } catch (error) {
       console.error('Error during logout:', error);
-      // Clear store and redirect even if there's an error
+      // Fallback: clear store and redirect even if there's an error
       logout();
       router.push("/");
     }
