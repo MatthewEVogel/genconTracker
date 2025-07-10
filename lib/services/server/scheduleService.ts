@@ -58,7 +58,7 @@ export class ScheduleService {
       include: {
         desiredEvents: {
           include: {
-            event: true
+            eventsList: true
           }
         }
       }
@@ -73,7 +73,7 @@ export class ScheduleService {
     const desiredEvents = await prisma.desiredEvents.findMany({
       where: { userId },
       include: {
-        event: {
+        eventsList: {
           select: {
             id: true,
             title: true,
@@ -90,7 +90,7 @@ export class ScheduleService {
 
     // Transform to maintain API compatibility
     const userEvents = desiredEvents.map(de => ({
-      event: de.event
+      event: de.eventsList
     }));
 
     return { userEvents };
@@ -101,9 +101,9 @@ export class ScheduleService {
     // Check if the user already has this event
     const existingDesiredEvent = await prisma.desiredEvents.findUnique({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId: eventId
         }
       }
     });
@@ -112,8 +112,8 @@ export class ScheduleService {
       throw new Error('Event already in schedule');
     }
 
-    // Get the event details
-    const event = await prisma.event.findUnique({
+    // Get the event details from EventsList
+    const event = await prisma.eventsList.findUnique({
       where: { id: eventId }
     });
 
@@ -128,7 +128,7 @@ export class ScheduleService {
     await prisma.desiredEvents.create({
       data: {
         userId,
-        eventId
+        eventsListId: eventId
       }
     });
 
@@ -143,9 +143,9 @@ export class ScheduleService {
   static async removeUserEvent(userId: string, eventId: string): Promise<RemoveEventResponse> {
     const desiredEvent = await prisma.desiredEvents.findUnique({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId: eventId
         }
       }
     });
@@ -156,9 +156,9 @@ export class ScheduleService {
 
     await prisma.desiredEvents.delete({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId: eventId
         }
       }
     });
@@ -174,14 +174,14 @@ export class ScheduleService {
       id: user.id,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
       events: user.desiredEvents.map((desiredEvent: any) => ({
-        id: desiredEvent.event.id,
-        title: desiredEvent.event.title,
-        startDateTime: desiredEvent.event.startDateTime,
-        endDateTime: desiredEvent.event.endDateTime,
-        eventType: desiredEvent.event.eventType,
-        location: desiredEvent.event.location,
-        cost: desiredEvent.event.cost,
-        ticketsAvailable: desiredEvent.event.ticketsAvailable
+        id: desiredEvent.eventsList.id,
+        title: desiredEvent.eventsList.title,
+        startDateTime: desiredEvent.eventsList.startDateTime,
+        endDateTime: desiredEvent.eventsList.endDateTime,
+        eventType: desiredEvent.eventsList.eventType,
+        location: desiredEvent.eventsList.location,
+        cost: desiredEvent.eventsList.cost,
+        ticketsAvailable: desiredEvent.eventsList.ticketsAvailable
       }))
     }));
   }
@@ -195,11 +195,11 @@ export class ScheduleService {
     if (newEvent.startDateTime && newEvent.endDateTime) {
       const desiredEvents = await prisma.desiredEvents.findMany({
         where: { userId },
-        include: { event: true }
+        include: { eventsList: true }
       });
 
       for (const desiredEvent of desiredEvents) {
-        const existingEvent = desiredEvent.event;
+        const existingEvent = desiredEvent.eventsList;
         if (existingEvent.startDateTime && existingEvent.endDateTime) {
           const newStart = new Date(newEvent.startDateTime);
           const newEnd = new Date(newEvent.endDateTime);

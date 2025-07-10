@@ -34,7 +34,6 @@ model User {
   createdAt DateTime @default(now())
   userEvents UserEvent[]
   desiredEvents DesiredEvents[]
-  eventsListEvents EventsListEvent[]
   ticketAssignments TicketAssignment[]
   eventTicketAssignments EventTicketAssignment[]
 }
@@ -60,7 +59,6 @@ model Event {
   lastUpdated       DateTime @default(now()) @updatedAt
   createdAt         DateTime @default(now())
   userEvents        UserEvent[]
-  desiredEvents     DesiredEvents[]
   ticketAssignments TicketAssignment[]
 }
 
@@ -116,14 +114,14 @@ model RegistrationTimer {
 }
 
 model DesiredEvents {
-  id      String @id @default(uuid())
-  userId  String
-  eventId String
+  id            String @id @default(uuid())
+  userId        String
+  eventsListId  String
   
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventsList    EventsList @relation(fields: [eventsListId], references: [id], onDelete: Cascade)
   
-  @@unique([userId, eventId])
+  @@unique([userId, eventsListId])
 }
 
 model EventsList {
@@ -143,20 +141,10 @@ model EventsList {
   priority          Int      @default(1) // 1=Normal, 2=Important, 3=Critical
   isCanceled        Boolean  @default(false)
   
-  eventsListEvents  EventsListEvent[]
+  desiredEvents     DesiredEvents[]
   eventTicketAssignments EventTicketAssignment[]
 }
 
-model EventsListEvent {
-  id            String @id @default(uuid())
-  userId        String
-  eventsListId  String
-  
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventsList    EventsList @relation(fields: [eventsListId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, eventsListId])
-}
 
 model EventTicketAssignment {
   id              String   @id @default(uuid())

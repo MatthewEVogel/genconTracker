@@ -25,8 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const userEvents = desiredEvents.map(de => ({
         id: de.id,
         userId: de.userId,
-        eventId: de.eventId,
-        event: de.event
+        eventId: de.eventsListId,
+        event: de.eventsList
       }));
 
       return res.status(200).json({ userEvents });
@@ -56,8 +56,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const userEvent = {
         id: result.desiredEvent.id,
         userId: result.desiredEvent.userId,
-        eventId: result.desiredEvent.eventId,
-        event: result.desiredEvent.event
+        eventId: result.desiredEvent.eventsListId,
+        event: result.desiredEvent.eventsList
       };
 
       return res.status(201).json({ 

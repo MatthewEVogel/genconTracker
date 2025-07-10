@@ -22,7 +22,7 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
       include: {
         desiredEvents: {
           include: {
-            event: true
+            eventsList: true
           }
         }
       }
@@ -33,10 +33,10 @@ export async function recalculateAndSaveTicketAssignments(): Promise<{
       user.desiredEvents.map(desiredEvent => ({
         userId: user.id,
         userName: `${user.firstName} ${user.lastName}`,
-        eventId: desiredEvent.event.id,
-        eventTitle: desiredEvent.event.title,
-        priority: desiredEvent.event.priority,
-        cost: desiredEvent.event.cost || '0'
+        eventId: desiredEvent.eventsList.id,
+        eventTitle: desiredEvent.eventsList.title,
+        priority: desiredEvent.eventsList.priority,
+        cost: desiredEvent.eventsList.cost || '0'
       }))
     );
 
@@ -110,7 +110,7 @@ export async function getLatestTicketAssignments() {
         assignments: {
           include: {
             user: true,
-            event: true
+            eventsList: true
           }
         }
       }
@@ -136,7 +136,7 @@ export async function getLatestTicketAssignments() {
       const userAssignment = userAssignments.get(assignment.userId);
       userAssignment.events.push({
         eventId: assignment.eventId,
-        eventTitle: assignment.event.title,
+        eventTitle: assignment.eventsList.title,
         priority: assignment.priority,
         buyingFor: JSON.parse(assignment.buyingFor),
         cost: assignment.cost
@@ -179,7 +179,7 @@ export async function getUserTicketAssignment(userId: string) {
         calculationId: latestCalculation.id
       },
       include: {
-        event: true,
+        eventsList: true,
         user: true
       }
     });
@@ -217,7 +217,7 @@ export async function getUserTicketAssignment(userId: string) {
       userName: `${assignments[0].user.firstName} ${assignments[0].user.lastName}`,
       events: assignments.map(assignment => ({
         eventId: assignment.eventId,
-        eventTitle: assignment.event.title,
+        eventTitle: assignment.eventsList.title,
         priority: assignment.priority,
         buyingFor: JSON.parse(assignment.buyingFor),
         cost: assignment.cost

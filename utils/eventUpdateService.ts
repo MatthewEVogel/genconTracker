@@ -97,7 +97,7 @@ async function performDifferentialUpdate(
   stats: UpdateResult['stats']
 ): Promise<void> {
   // Get all existing events from database
-  const existingEvents = await prisma.event.findMany({
+  const existingEvents = await prisma.eventsList.findMany({
     select: {
       id: true,
       title: true,
@@ -105,7 +105,6 @@ async function performDifferentialUpdate(
       eventType: true,
       gameSystem: true,
       startDateTime: true,
-      duration: true,
       endDateTime: true,
       ageRequired: true,
       experienceRequired: true,
@@ -132,7 +131,7 @@ async function performDifferentialUpdate(
 
       if (!existingEvent) {
         // New event - create it
-        await prisma.event.create({
+        await prisma.eventsList.create({
           data: {
             id: newEvent.id,
             title: newEvent.title,
@@ -140,7 +139,6 @@ async function performDifferentialUpdate(
             eventType: newEvent.eventType || null,
             gameSystem: newEvent.gameSystem || null,
             startDateTime: newEvent.startDateTime || null,
-            duration: newEvent.duration || null,
             endDateTime: newEvent.endDateTime || null,
             ageRequired: newEvent.ageRequired || null,
             experienceRequired: newEvent.experienceRequired || null,
@@ -163,7 +161,6 @@ async function performDifferentialUpdate(
           existingEvent.eventType !== (newEvent.eventType || null) ||
           existingEvent.gameSystem !== (newEvent.gameSystem || null) ||
           existingEvent.startDateTime !== (newEvent.startDateTime || null) ||
-          existingEvent.duration !== (newEvent.duration || null) ||
           existingEvent.endDateTime !== (newEvent.endDateTime || null) ||
           existingEvent.ageRequired !== (newEvent.ageRequired || null) ||
           existingEvent.experienceRequired !== (newEvent.experienceRequired || null) ||
@@ -175,7 +172,7 @@ async function performDifferentialUpdate(
         );
 
         if (needsUpdate) {
-          await prisma.event.update({
+          await prisma.eventsList.update({
             where: { id: newEvent.id },
             data: {
               title: newEvent.title,
@@ -183,7 +180,6 @@ async function performDifferentialUpdate(
               eventType: newEvent.eventType || null,
               gameSystem: newEvent.gameSystem || null,
               startDateTime: newEvent.startDateTime || null,
-              duration: newEvent.duration || null,
               endDateTime: newEvent.endDateTime || null,
               ageRequired: newEvent.ageRequired || null,
               experienceRequired: newEvent.experienceRequired || null,
@@ -191,9 +187,7 @@ async function performDifferentialUpdate(
               cost: newEvent.cost || null,
               location: newEvent.location || null,
               ticketsAvailable: newEvent.ticketsAvailable || null,
-              isCanceled: false, // Un-cancel if it was canceled
-              canceledAt: null,
-              lastUpdated: new Date()
+              isCanceled: false // Un-cancel if it was canceled
             }
           });
           stats.updatedEvents++;
@@ -213,19 +207,17 @@ async function performDifferentialUpdate(
       try {
         if (existingEvent._count.desiredEvents > 0) {
           // Event has users - mark as canceled
-          await prisma.event.update({
+          await prisma.eventsList.update({
             where: { id: existingEvent.id },
             data: {
-              isCanceled: true,
-              canceledAt: new Date(),
-              lastUpdated: new Date()
+              isCanceled: true
             }
           });
           stats.canceledEvents++;
           console.log(`Marked event as canceled: ${existingEvent.id} - ${existingEvent.title}`);
         } else {
           // Event has no users - safe to delete
-          await prisma.event.delete({
+          await prisma.eventsList.delete({
             where: { id: existingEvent.id }
           });
           stats.deletedEvents++;
@@ -241,7 +233,7 @@ async function performDifferentialUpdate(
 
   // Clean up canceled events that no longer have users
   try {
-    const canceledEventsWithoutUsers = await prisma.event.findMany({
+    const canceledEventsWithoutUsers = await prisma.eventsList.findMany({
       where: {
         isCanceled: true,
         desiredEvents: {
@@ -251,7 +243,7 @@ async function performDifferentialUpdate(
     });
 
     for (const event of canceledEventsWithoutUsers) {
-      await prisma.event.delete({
+      await prisma.eventsList.delete({
         where: { id: event.id }
       });
       stats.deletedEvents++;

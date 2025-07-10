@@ -8,7 +8,7 @@ export default async function handler(
   if (req.method === 'GET') {
     try {
       // Get all unique age ratings and event types
-      const events = await prisma.event.findMany({
+      const events = await prisma.eventsList.findMany({
         select: {
           ageRequired: true,
           eventType: true,

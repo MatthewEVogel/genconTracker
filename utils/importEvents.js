@@ -44,7 +44,7 @@ async function importEvents() {
     console.log(`Found ${dataLines.length} events to import`);
     
     // Clear existing events
-    await prisma.event.deleteMany();
+    await prisma.eventsList.deleteMany();
     console.log('Cleared existing events');
     
     let imported = 0;
@@ -78,8 +78,12 @@ async function importEvents() {
           ticketsAvailable: columns[30] ? parseInt(columns[30].trim()) || null : null, // Tickets Available
         };
         
-        await prisma.event.create({
-          data: eventData
+        await prisma.eventsList.create({
+          data: {
+            ...eventData,
+            priority: 1, // Default priority
+            isCanceled: false
+          }
         });
         
         imported++;

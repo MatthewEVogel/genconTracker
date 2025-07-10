@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 export interface DesiredEvent {
   id: string;
   userId: string;
-  eventId: string;
-  event?: {
+  eventsListId: string;
+  eventsList?: {
     id: string;
     title: string;
     startDateTime: string | null;
@@ -13,13 +13,13 @@ export interface DesiredEvent {
     location?: string | null;
     cost?: string | null;
     ticketsAvailable?: number | null;
+    priority: number;
     isCanceled: boolean;
-    canceledAt?: Date | null;
   };
 }
 
 export interface ConflictInfo {
-  eventId: string;
+  eventsListId: string;
   title: string;
   startDateTime: string | null;
   endDateTime: string | null;
@@ -38,15 +38,15 @@ export class DesiredEventsService {
     
     // Filter by canceled status if specified
     if (includeCanceled === true) {
-      whereClause.event = { isCanceled: true };
+      whereClause.eventsList = { isCanceled: true };
     } else if (includeCanceled === false) {
-      whereClause.event = { isCanceled: false };
+      whereClause.eventsList = { isCanceled: false };
     }
 
     const desiredEvents = await prisma.desiredEvents.findMany({
       where: whereClause,
       include: {
-        event: {
+        eventsList: {
           select: {
             id: true,
             title: true,
@@ -56,8 +56,8 @@ export class DesiredEventsService {
             location: true,
             cost: true,
             ticketsAvailable: true,
-            isCanceled: true,
-            canceledAt: true
+            priority: true,
+            isCanceled: true
           }
         }
       }
@@ -71,22 +71,21 @@ export class DesiredEventsService {
     const desiredEvents = await this.getUserDesiredEvents(userId, true);
     
     return desiredEvents.map(de => ({
-      id: de.event!.id,
-      title: de.event!.title,
-      startDateTime: de.event!.startDateTime,
-      canceledAt: de.event!.canceledAt,
-      isCanceled: de.event!.isCanceled
+      id: de.eventsList!.id,
+      title: de.eventsList!.title,
+      startDateTime: de.eventsList!.startDateTime,
+      isCanceled: de.eventsList!.isCanceled
     }));
   }
 
   // Add a desired event for a user
-  static async addDesiredEvent(userId: string, eventId: string): Promise<AddDesiredEventResponse> {
+  static async addDesiredEvent(userId: string, eventsListId: string): Promise<AddDesiredEventResponse> {
     // Check if already exists
     const existing = await prisma.desiredEvents.findUnique({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId
         }
       }
     });
@@ -95,9 +94,9 @@ export class DesiredEventsService {
       throw new Error('User is already registered for this event');
     }
 
-    // Get event details
-    const event = await prisma.event.findUnique({
-      where: { id: eventId }
+    // Get event details from EventsList
+    const event = await prisma.eventsList.findUnique({
+      where: { id: eventsListId }
     });
 
     if (!event) {
@@ -108,16 +107,16 @@ export class DesiredEventsService {
     const conflicts = await this.checkTimeConflicts(userId, event);
 
     // Check capacity
-    const capacityWarning = await this.checkCapacity(eventId, event.ticketsAvailable);
+    const capacityWarning = await this.checkCapacity(eventsListId, event.ticketsAvailable);
 
     // Create the desired event
     const desiredEvent = await prisma.desiredEvents.create({
       data: {
         userId,
-        eventId
+        eventsListId
       },
       include: {
-        event: {
+        eventsList: {
           select: {
             id: true,
             title: true,
@@ -127,8 +126,8 @@ export class DesiredEventsService {
             location: true,
             cost: true,
             ticketsAvailable: true,
-            isCanceled: true,
-            canceledAt: true
+            priority: true,
+            isCanceled: true
           }
         }
       }
@@ -142,12 +141,12 @@ export class DesiredEventsService {
   }
 
   // Remove a desired event for a user
-  static async removeDesiredEvent(userId: string, eventId: string): Promise<void> {
+  static async removeDesiredEvent(userId: string, eventsListId: string): Promise<void> {
     const desiredEvent = await prisma.desiredEvents.findUnique({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId
         }
       }
     });
@@ -158,21 +157,21 @@ export class DesiredEventsService {
 
     await prisma.desiredEvents.delete({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId
         }
       }
     });
   }
 
   // Check if user has a specific desired event
-  static async userHasDesiredEvent(userId: string, eventId: string): Promise<boolean> {
+  static async userHasDesiredEvent(userId: string, eventsListId: string): Promise<boolean> {
     const desiredEvent = await prisma.desiredEvents.findUnique({
       where: {
-        userId_eventId: {
+        userId_eventsListId: {
           userId,
-          eventId
+          eventsListId
         }
       }
     });
@@ -181,9 +180,9 @@ export class DesiredEventsService {
   }
 
   // Get count of users who want a specific event
-  static async getEventDesiredCount(eventId: string): Promise<number> {
+  static async getEventDesiredCount(eventsListId: string): Promise<number> {
     return await prisma.desiredEvents.count({
-      where: { eventId }
+      where: { eventsListId }
     });
   }
 
@@ -195,7 +194,7 @@ export class DesiredEventsService {
 
     const userDesiredEvents = await prisma.desiredEvents.findMany({
       where: { userId },
-      include: { event: true }
+      include: { eventsList: true }
     });
 
     const conflicts: ConflictInfo[] = [];
@@ -203,7 +202,7 @@ export class DesiredEventsService {
     const newEventEnd = new Date(newEvent.endDateTime);
 
     for (const desiredEvent of userDesiredEvents) {
-      const existingEvent = desiredEvent.event;
+      const existingEvent = desiredEvent.eventsList;
       if (existingEvent.startDateTime && existingEvent.endDateTime) {
         const existingStart = new Date(existingEvent.startDateTime);
         const existingEnd = new Date(existingEvent.endDateTime);
@@ -211,7 +210,7 @@ export class DesiredEventsService {
         // Check for overlap
         if (newEventStart < existingEnd && newEventEnd > existingStart) {
           conflicts.push({
-            eventId: existingEvent.id,
+            eventsListId: existingEvent.id,
             title: existingEvent.title,
             startDateTime: existingEvent.startDateTime,
             endDateTime: existingEvent.endDateTime
@@ -224,13 +223,13 @@ export class DesiredEventsService {
   }
 
   // Private method to check capacity warning
-  private static async checkCapacity(eventId: string, ticketsAvailable: number | null): Promise<boolean> {
+  private static async checkCapacity(eventsListId: string, ticketsAvailable: number | null): Promise<boolean> {
     if (!ticketsAvailable) {
       return false;
     }
 
     const signupCount = await prisma.desiredEvents.count({
-      where: { eventId }
+      where: { eventsListId }
     });
 
     return signupCount >= ticketsAvailable;
