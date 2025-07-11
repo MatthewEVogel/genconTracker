@@ -54,7 +54,7 @@ export interface RemoveEventResponse {
 export class ScheduleService {
   // Get schedule data for all users
   static async getScheduleData(): Promise<ScheduleResponse> {
-    const users = await prisma.user.findMany({
+    const users = await prisma.userList.findMany({
       include: {
         desiredEvents: {
           include: {

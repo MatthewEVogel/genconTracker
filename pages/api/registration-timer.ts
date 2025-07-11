@@ -50,7 +50,7 @@ export default async function handler(
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await prisma.userList.findUnique({ where: { id: userId } });
       if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
@@ -103,7 +103,7 @@ export default async function handler(
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await prisma.userList.findUnique({ where: { id: userId } });
       if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }
@@ -155,7 +155,7 @@ export default async function handler(
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await prisma.userList.findUnique({ where: { id: userId } });
       if (!user?.isAdmin) {
         return res.status(403).json({ error: 'Admin access required' });
       }

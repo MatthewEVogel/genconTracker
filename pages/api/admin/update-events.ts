@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get user from database to check admin status
-    const user = await prisma.user.findUnique({
+    const user = await prisma.userList.findUnique({
       where: { email: session.user.email },
       select: { id: true, isAdmin: true, firstName: true, lastName: true }
     });

@@ -45,7 +45,7 @@ export async function sendRegistrationReminders(registrationDate: Date) {
   }
 
   // Get all users with email notifications enabled
-  const usersWithNotifications = await prisma.user.findMany({
+  const usersWithNotifications = await prisma.userList.findMany({
     where: {
       emailNotifications: true
     },
@@ -147,7 +147,7 @@ async function sendEmailNotification(user: any, data: NotificationData) {
 export async function sendTestNotifications() {
   try {
     // Get all users with email notifications enabled
-    const usersWithNotifications = await prisma.user.findMany({
+    const usersWithNotifications = await prisma.userList.findMany({
       where: {
         emailNotifications: true
       },

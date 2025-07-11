@@ -31,7 +31,7 @@ export default async function handler(
       }
 
       // Try to find existing user first
-      let user = await prisma.user.findUnique({
+      let user = await prisma.userList.findUnique({
         where: { email: trimmedEmail }
       });
 
@@ -42,7 +42,7 @@ export default async function handler(
                               trimmedFirstName === 'm-admin' && 
                               trimmedLastName === 'v-admin';
         
-        user = await prisma.user.create({
+        user = await prisma.userList.create({
           data: { 
             firstName: trimmedFirstName,
             lastName: trimmedLastName,
@@ -92,7 +92,7 @@ export default async function handler(
       }
 
       // Update user
-      const user = await prisma.user.update({
+      const user = await prisma.userList.update({
         where: { id },
         data: { 
           firstName: trimmedFirstName,
@@ -122,7 +122,7 @@ export default async function handler(
       }
 
       // Delete user (cascade will handle related records)
-      await prisma.user.delete({
+      await prisma.userList.delete({
         where: { id }
       });
 

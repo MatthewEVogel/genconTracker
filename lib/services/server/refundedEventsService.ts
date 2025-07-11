@@ -139,7 +139,7 @@ export class RefundedEventsService {
     }
 
     // Verify that the user exists
-    const user = await prisma.user.findUnique({
+    const user = await prisma.userList.findUnique({
       where: { id: data.userId }
     });
 

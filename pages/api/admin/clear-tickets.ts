@@ -20,7 +20,7 @@ export default async function handler(
     }
 
     // Get user from database and verify admin status
-    const user = await prisma.user.findUnique({
+    const user = await prisma.userList.findUnique({
       where: { email: session.user.email }
     });
 

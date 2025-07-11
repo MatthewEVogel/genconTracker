@@ -14,7 +14,7 @@ export default async function handler(
       }
 
       // Verify the requesting user is an admin
-      const adminUser = await prisma.user.findUnique({
+      const adminUser = await prisma.userList.findUnique({
         where: { id: adminUserId }
       });
 
@@ -23,7 +23,7 @@ export default async function handler(
       }
 
       // Get all users
-      const users = await prisma.user.findMany({
+      const users = await prisma.userList.findMany({
         select: {
           id: true,
           firstName: true,
@@ -60,7 +60,7 @@ export default async function handler(
       }
 
       // Verify the requesting user is an admin
-      const adminUser = await prisma.user.findUnique({
+      const adminUser = await prisma.userList.findUnique({
         where: { id: adminUserId }
       });
 
@@ -74,7 +74,7 @@ export default async function handler(
       }
 
       // Get user to delete for logging
-      const userToDelete = await prisma.user.findUnique({
+      const userToDelete = await prisma.userList.findUnique({
         where: { id: userIdToDelete },
         select: { firstName: true, lastName: true, email: true, isAdmin: true }
       });
@@ -89,7 +89,7 @@ export default async function handler(
       }
 
       // Delete user (cascade will handle related records)
-      await prisma.user.delete({
+      await prisma.userList.delete({
         where: { id: userIdToDelete }
       });
 

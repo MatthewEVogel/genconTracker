@@ -44,7 +44,7 @@ export class RefundService {
   // Parse tickets from GenCon purchase text and save them
   static async parseTickets(text: string, userEmail: string): Promise<ParseTicketsResponse> {
     // Get user from database
-    const user = await prisma.user.findUnique({
+    const user = await prisma.userList.findUnique({
       where: { email: userEmail }
     });
 
@@ -106,7 +106,7 @@ export class RefundService {
 
   // Get purchased events by user email
   static async getPurchasedEventsByUser(userEmail: string) {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.userList.findUnique({
       where: { email: userEmail }
     });
 
