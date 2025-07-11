@@ -10,9 +10,7 @@ interface User {
   googleId?: string;
   provider: string;
   image?: string;
-  phoneNumber?: string;
   emailNotifications: boolean;
-  textNotifications: boolean;
   createdAt: string;
 }
 

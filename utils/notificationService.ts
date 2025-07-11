@@ -1,24 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import sgMail from '@sendgrid/mail';
-import twilio from 'twilio';
 
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-// Initialize Twilio
-let twilioClient: twilio.Twilio | null = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-  twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-  console.log('✅ Twilio initialized successfully');
-  console.log('📱 Twilio phone number:', process.env.TWILIO_PHONE_NUMBER);
-} else {
-  console.log('❌ Twilio not initialized - missing credentials');
-  console.log('TWILIO_ACCOUNT_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
-  console.log('TWILIO_AUTH_TOKEN:', process.env.TWILIO_AUTH_TOKEN ? 'SET' : 'MISSING');
-  console.log('TWILIO_PHONE_NUMBER:', process.env.TWILIO_PHONE_NUMBER ? 'SET' : 'MISSING');
-}
 
 export interface NotificationData {
   type: 'registration_reminder';
@@ -57,22 +44,17 @@ export async function sendRegistrationReminders(registrationDate: Date) {
     return { sent: false, reason: 'No reminder needed at this time' };
   }
 
-  // Get all users with notifications enabled
+  // Get all users with email notifications enabled
   const usersWithNotifications = await prisma.user.findMany({
     where: {
-      OR: [
-        { emailNotifications: true },
-        { textNotifications: true }
-      ]
+      emailNotifications: true
     },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       email: true,
-      phoneNumber: true,
-      emailNotifications: true,
-      textNotifications: true
+      emailNotifications: true
     }
   });
 
@@ -93,24 +75,14 @@ export async function sendRegistrationReminders(registrationDate: Date) {
 
   const results = {
     emailsSent: 0,
-    textsSent: 0,
     errors: [] as string[]
   };
 
-  // Send notifications to each user
+  // Send email notifications to each user
   for (const user of usersWithNotifications) {
     try {
-      // Send email notification
-      if (user.emailNotifications) {
-        await sendEmailNotification(user, notificationData);
-        results.emailsSent++;
-      }
-
-      // Send text notification
-      if (user.textNotifications && user.phoneNumber) {
-        await sendTextNotification(user, notificationData);
-        results.textsSent++;
-      }
+      await sendEmailNotification(user, notificationData);
+      results.emailsSent++;
     } catch (error) {
       console.error(`Failed to send notification to user ${user.id}:`, error);
       results.errors.push(`Failed to notify ${user.firstName} ${user.lastName}: ${error}`);
@@ -171,49 +143,20 @@ async function sendEmailNotification(user: any, data: NotificationData) {
   return true;
 }
 
-async function sendTextNotification(user: any, data: NotificationData) {
-  const smsContent = {
-    to: user.phoneNumber,
-    from: process.env.TWILIO_PHONE_NUMBER,
-    body: `🎲 GenCon Alert: Registration opens in ${data.timeUntilRegistration}! (${data.registrationDate}) Get ready! - GenCon Tracker`
-  };
-
-  console.log('📱 SMS NOTIFICATION:', smsContent);
-  
-  // Send SMS with Twilio if configured
-  if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
-    try {
-      const message = await twilioClient.messages.create(smsContent);
-      console.log('✅ SMS sent successfully via Twilio:', message.sid);
-    } catch (error) {
-      console.error('❌ Twilio SMS error:', error);
-      throw error;
-    }
-  } else {
-    console.log('⚠️ Twilio not configured - SMS not sent');
-  }
-  
-  return true;
-}
 
 export async function sendTestNotifications() {
   try {
-    // Get all users with notifications enabled
+    // Get all users with email notifications enabled
     const usersWithNotifications = await prisma.user.findMany({
       where: {
-        OR: [
-          { emailNotifications: true },
-          { textNotifications: true }
-        ]
+        emailNotifications: true
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         email: true,
-        phoneNumber: true,
-        emailNotifications: true,
-        textNotifications: true
+        emailNotifications: true
       }
     });
 
@@ -241,24 +184,14 @@ export async function sendTestNotifications() {
 
     const results = {
       emailsSent: 0,
-      textsSent: 0,
       errors: [] as string[]
     };
 
-    // Send test notifications to each user
+    // Send test email notifications to each user
     for (const user of usersWithNotifications) {
       try {
-        // Send email notification
-        if (user.emailNotifications && user.email) {
-          await sendEmailNotification(user, testNotificationData);
-          results.emailsSent++;
-        }
-
-        // Send text notification
-        if (user.textNotifications && user.phoneNumber) {
-          await sendTextNotification(user, testNotificationData);
-          results.textsSent++;
-        }
+        await sendEmailNotification(user, testNotificationData);
+        results.emailsSent++;
       } catch (error) {
         console.error(`Failed to send test notification to user ${user.id}:`, error);
         results.errors.push(`Failed to notify ${user.firstName} ${user.lastName}: ${error}`);

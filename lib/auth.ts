@@ -14,9 +14,7 @@ declare module "next-auth" {
       lastName?: string
       isAdmin?: boolean
       provider?: string
-      phoneNumber?: string | null
       emailNotifications?: boolean
-      textNotifications?: boolean
     }
   }
 }
@@ -80,9 +78,7 @@ export const authOptions: NextAuthOptions = {
                 provider: "google",
                 image: user.image,
                 isAdmin: isAdminAccount,
-                phoneNumber: null,
-                emailNotifications: false,
-                textNotifications: false
+                emailNotifications: false
               }
             });
           }
@@ -111,9 +107,7 @@ export const authOptions: NextAuthOptions = {
           isAdmin: dbUser.isAdmin,
           provider: dbUser.provider,
           image: dbUser.image,
-          phoneNumber: dbUser.phoneNumber,
-          emailNotifications: dbUser.emailNotifications,
-          textNotifications: dbUser.textNotifications
+          emailNotifications: dbUser.emailNotifications
         };
       }
 
