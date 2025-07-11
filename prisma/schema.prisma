@@ -36,6 +36,7 @@ model User {
   desiredEvents DesiredEvents[]
   ticketAssignments TicketAssignment[]
   eventTicketAssignments EventTicketAssignment[]
+  refundedEvents RefundedEvents[]
 }
 
 model Event {
@@ -163,16 +164,46 @@ model EventTicketAssignment {
   @@unique([userId, eventsListId, calculationId])
 }
 
-model PurchasedTicket {
+model PurchasedEvents {
   id          String   @id @default(uuid())
-  eventId     String   // RPG25ND272941 (first 13 chars)
-  eventName   String   // Dread: Victim's Choice
-  recipient   String   // Liv Benjamin (from ticket)
-  purchaser   String   // Matthew Vogel (logged-in user)
-  purchaseDate DateTime @default(now())
-  needsRefund Boolean  @default(false)
-  isRefunded  Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  eventId     String   // Event ID - references EventsList
+  recipient   String   // Recipient name (from ticket)
+  purchaser   String   // Purchaser name (logged-in user)
+  
+  refundedEvents RefundedEvents[]
   
   @@index([eventId])
+}
+
+model RefundedEvents {
+  id        String   @id @default(uuid())
+  userId    String
+  ticketId  String
+  createdAt DateTime @default(now())
+  
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket    PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, ticketId])
+  @@index([userId])
+  @@index([ticketId])
+}
+
+model UserList {
+  id        String   @id @default(uuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  isAdmin   Boolean  @default(false)
+  
+  // OAuth fields
+  googleId  String?  @unique
+  provider  String   @default("manual") // "manual" or "google"
+  image     String?  // Profile picture URL
+  
+  // Notification settings
+  emailNotifications Boolean @default(false)
+  pushNotifications Boolean @default(false)
+  
+  createdAt DateTime @default(now())
 }

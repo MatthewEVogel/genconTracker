@@ -89,18 +89,13 @@ CREATE TABLE "registration_timer" (
 );
 
 -- CreateTable
-CREATE TABLE "PurchasedTicket" (
+CREATE TABLE "PurchasedEvents" (
     "id" TEXT NOT NULL,
     "eventId" TEXT NOT NULL,
-    "eventName" TEXT NOT NULL,
     "recipient" TEXT NOT NULL,
     "purchaser" TEXT NOT NULL,
-    "purchaseDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "needsRefund" BOOLEAN NOT NULL DEFAULT false,
-    "isRefunded" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "PurchasedTicket_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "PurchasedEvents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -116,7 +111,7 @@ CREATE UNIQUE INDEX "UserEvent_userId_eventId_key" ON "UserEvent"("userId", "eve
 CREATE UNIQUE INDEX "TicketAssignment_userId_eventId_calculationId_key" ON "TicketAssignment"("userId", "eventId", "calculationId");
 
 -- CreateIndex
-CREATE INDEX "PurchasedTicket_eventId_idx" ON "PurchasedTicket"("eventId");
+CREATE INDEX "PurchasedEvents_eventId_idx" ON "PurchasedEvents"("eventId");
 
 -- AddForeignKey
 ALTER TABLE "UserEvent" ADD CONSTRAINT "UserEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

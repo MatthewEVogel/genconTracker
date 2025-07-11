@@ -64,7 +64,7 @@ export default async function handler(
     }
   } else if (req.method === 'PUT') {
     try {
-      const { id, firstName, lastName, email, phoneNumber, emailNotifications, textNotifications } = req.body;
+      const { id, firstName, lastName, email, emailNotifications } = req.body;
 
       if (!id) {
         return res.status(400).json({ error: 'User ID is required' });
@@ -98,9 +98,7 @@ export default async function handler(
           firstName: trimmedFirstName,
           lastName: trimmedLastName,
           email: trimmedEmail,
-          phoneNumber: phoneNumber?.trim() || null,
-          emailNotifications: emailNotifications || false,
-          textNotifications: textNotifications || false
+          emailNotifications: emailNotifications || false
         }
       });
 
