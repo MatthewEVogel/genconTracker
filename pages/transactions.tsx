@@ -207,7 +207,16 @@ export default function TransactionsPage() {
             Transaction Parser
           </h2>
           <p className="text-gray-600 mb-4">
-            Paste your GenCon transaction data below to automatically extract purchases and refunds.
+            Paste your GenCon transaction data below to automatically extract purchases and refunds. 
+            You can get your transaction data from the{' '}
+            <a 
+              href="https://www.gencon.com/my_transactions/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              GenCon transactions page
+            </a>.
           </p>
         </div>
 
