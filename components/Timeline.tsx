@@ -19,6 +19,43 @@ const formatTime = (hour: number) => {
   return `${hour - 12} PM`;
 };
 
+// Generate consistent color for an event based on its ID
+const getEventColor = (eventId: string) => {
+  // Simple hash function to convert eventId to a number
+  let hash = 0;
+  for (let i = 0; i < eventId.length; i++) {
+    const char = eventId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Use absolute value to ensure positive number
+  hash = Math.abs(hash);
+  
+  // Define a set of visually distinct colors (avoiding red which is reserved for conflicts)
+  const colors = [
+    'bg-blue-500',    // Blue
+    'bg-green-500',   // Green  
+    'bg-purple-500',  // Purple
+    'bg-yellow-500',  // Yellow
+    'bg-indigo-500',  // Indigo
+    'bg-pink-500',    // Pink
+    'bg-teal-500',    // Teal
+    'bg-orange-500',  // Orange
+    'bg-cyan-500',    // Cyan
+    'bg-lime-500',    // Lime
+    'bg-emerald-500', // Emerald
+    'bg-violet-500',  // Violet
+    'bg-sky-500',     // Sky
+    'bg-rose-500',    // Rose
+    'bg-amber-500',   // Amber
+    'bg-slate-500',   // Slate
+  ];
+  
+  // Use hash to select color from array
+  return colors[hash % colors.length];
+};
+
 const parseDateTime = (dateTimeStr: string | null) => {
   if (!dateTimeStr) return null;
   try {
@@ -173,16 +210,15 @@ export default function Timeline({
                       const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
                       const hasConflict = conflicts.length > 0;
                       const isUserEvent = userEventIds.includes(event.id);
+                      const eventColor = getEventColor(event.id);
                       
                       return (
                         <div
                           key={event.id}
                           className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
                             hasConflict 
-                              ? 'bg-red-500 text-white z-20' 
-                              : isCurrentUser 
-                                ? 'bg-blue-500 text-white z-10' 
-                                : 'bg-green-500 text-white z-0'
+                              ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                              : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
                           }`}
                           style={position}
                           onClick={() => setSelectedEvent(event)}
