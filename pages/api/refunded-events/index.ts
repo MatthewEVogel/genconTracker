@@ -1,6 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { RefundedEventsService } from '@/lib/services/server/refundedEventsService';
 
 export default async function handler(
@@ -8,12 +6,6 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.email) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     if (req.method === 'GET') {
       // Get all refunded events
       const includeDetails = req.query.includeDetails === 'true';

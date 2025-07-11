@@ -1,6 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { analyzeRefundCandidates, DuplicateTicket } from '@/utils/refundAlgorithm';
 import { PurchasedEvent } from '@/lib/services/server/refundService';
@@ -42,12 +40,6 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.email) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     if (req.method === 'GET') {
       // Get all purchased events
       const purchasedEvents = await prisma.purchasedEvents.findMany({
