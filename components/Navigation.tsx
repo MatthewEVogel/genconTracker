@@ -48,7 +48,7 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
     { name: "My Schedule", path: "/schedule", key: "schedule" },
     { name: "Browse Events", path: "/events", key: "events" },
     { name: "Tickets", path: "/tickets", key: "tickets" },
-    { name: "Refunds", path: "/refunds", key: "refunds" },
+    { name: "Transactions", path: "/transactions", key: "transactions" },
   ];
 
   // Add admin link if user is admin
