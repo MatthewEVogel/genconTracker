@@ -61,18 +61,25 @@ export default function EventTooltip({ event, children, isUserEvent = false }: E
       clearTimeout(timeoutRef.current);
     }
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      // Position tooltip above the event card
-      setPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 10
-      });
-    }
+    // Position tooltip at mouse position
+    setPosition({
+      x: e.clientX,
+      y: e.clientY - 10
+    });
 
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true);
     }, 300); // Small delay before showing
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Update tooltip position as mouse moves
+    if (isVisible) {
+      setPosition({
+        x: e.clientX,
+        y: e.clientY - 10
+      });
+    }
   };
 
   const handleMouseLeave = () => {
@@ -110,6 +117,7 @@ export default function EventTooltip({ event, children, isUserEvent = false }: E
       <div
         ref={containerRef}
         onMouseEnter={handleMouseEnter}
+        onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         className="relative"
       >
