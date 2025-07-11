@@ -53,15 +53,12 @@ export default function Settings() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/users', {
+      const response = await fetch(`/api/user-list/${user?.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id: user?.id,
-          ...formData
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -70,7 +67,7 @@ export default function Settings() {
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      setUser(data.user);
+      setUser(data.userList);
       setSuccess('Profile updated successfully!');
     } catch (err: any) {
       setError(err.message || 'Failed to update profile');
@@ -84,14 +81,8 @@ export default function Settings() {
     setError('');
 
     try {
-      const response = await fetch('/api/users', {
+      const response = await fetch(`/api/user-list/${user?.id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user?.id
-        }),
       });
 
       const data = await response.json();

@@ -31,7 +31,7 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google") {
         try {
           // Check if user already exists by email
-          const existingUser = await prisma.user.findUnique({
+          const existingUser = await prisma.userList.findUnique({
             where: { email: user.email! }
           });
 
@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
             
             // Only update if there are changes
             if (Object.keys(updateData).length > 0) {
-              await prisma.user.update({
+              await prisma.userList.update({
                 where: { id: existingUser.id },
                 data: updateData
               });
@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
             const adminEmails = ['matthewvogel1729@gmail.com', 'kencoder@gmail.com'];
             const isAdminAccount = adminEmails.includes(user.email!);
             
-            await prisma.user.create({
+            await prisma.userList.create({
               data: {
                 id: user.id,
                 email: user.email!,
@@ -78,7 +78,8 @@ export const authOptions: NextAuthOptions = {
                 provider: "google",
                 image: user.image,
                 isAdmin: isAdminAccount,
-                emailNotifications: false
+                emailNotifications: false,
+                pushNotifications: false
               }
             });
           }
@@ -94,7 +95,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, user }) {
       // Get the full user data from database
-      const dbUser = await prisma.user.findUnique({
+      const dbUser = await prisma.userList.findUnique({
         where: { email: session.user?.email! }
       });
 

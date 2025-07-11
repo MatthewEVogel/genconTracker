@@ -8,13 +8,12 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.email) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     if (req.method === 'GET') {
+      // Check authentication for GET requests
+      const session = await getServerSession(req, res, authOptions);
+      if (!session?.user?.email) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       // Get all users
       const data = await UserListService.getAllUsers();
       return res.status(200).json(data);
@@ -40,10 +39,12 @@ export default async function handler(
         return res.status(400).json({ error: 'Invalid email format' });
       }
 
-      // Check if user already exists
-      const emailExists = await UserListService.userExistsByEmail(email);
-      if (emailExists) {
-        return res.status(400).json({ error: 'Email already exists' });
+      // Try to find existing user first
+      try {
+        const existingUser = await UserListService.getUserByEmail(email);
+        return res.status(200).json(existingUser);
+      } catch (error) {
+        // User doesn't exist, continue to create new one
       }
 
       // Check if this is the admin account

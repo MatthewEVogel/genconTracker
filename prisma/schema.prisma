@@ -27,9 +27,7 @@ model User {
   image     String?  // Profile picture URL
   
   // Notification settings
-  phoneNumber String?
   emailNotifications Boolean @default(false)
-  textNotifications Boolean @default(false)
   
   createdAt DateTime @default(now())
   userEvents UserEvent[]

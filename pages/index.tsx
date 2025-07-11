@@ -60,7 +60,7 @@ export default function LandingPage() {
     setError("");
     
     try {
-      const response = await fetch('/api/users', {
+      const response = await fetch('/api/user-list', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export default function LandingPage() {
         throw new Error(data.error || 'Failed to create/find user');
       }
       
-      setUser(data.user);
+      setUser(data.userList);
       router.push("/schedule");
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
