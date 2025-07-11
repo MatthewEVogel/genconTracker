@@ -66,6 +66,22 @@ export default function CanceledEventAlert({ userId }: CanceledEventAlertProps) 
     setShowAlert(false);
   };
 
+  // Handle escape key press
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showAlert) {
+        handleDismiss();
+      }
+    };
+
+    if (showAlert) {
+      document.addEventListener('keydown', handleEscapeKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
+    }
+  }, [showAlert]);
+
   if (!showAlert || canceledEvents.length === 0) {
     return null;
   }

@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
+import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 
 interface AdminUser {
   id: string;
@@ -32,6 +33,7 @@ interface UpdateResult {
 export default function AdminPage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
+  const { customAlert, customConfirm, AlertComponent } = useCustomAlerts();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -85,7 +87,8 @@ export default function AdminPage() {
     
     const confirmMessage = `Are you sure you want to delete ${userToDelete.firstName} ${userToDelete.lastName} (${userToDelete.email})?\n\nThis will permanently delete their account and all associated events. This action cannot be undone.`;
     
-    if (!confirm(confirmMessage)) {
+    const confirmed = await customConfirm(confirmMessage, 'Delete User');
+    if (!confirmed) {
       return;
     }
     
@@ -113,7 +116,7 @@ export default function AdminPage() {
       // Remove user from local state
       setUsers(users.filter(u => u.id !== userToDelete.id));
       
-      alert(`Successfully deleted user: ${data.deletedUser.firstName} ${data.deletedUser.lastName}`);
+      await customAlert(`Successfully deleted user: ${data.deletedUser.firstName} ${data.deletedUser.lastName}`, 'Success');
     } catch (err) {
       console.error('Error deleting user:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -123,7 +126,8 @@ export default function AdminPage() {
   };
 
   const handleUpdateEvents = async () => {
-    if (!confirm('This will download the latest events from GenCon and update the database. This may take a few minutes. Continue?')) {
+    const confirmed = await customConfirm('This will download the latest events from GenCon and update the database. This may take a few minutes. Continue?', 'Update Events');
+    if (!confirmed) {
       return;
     }
 
@@ -144,7 +148,7 @@ export default function AdminPage() {
       setLastUpdateTime(new Date().toLocaleString());
 
       if (result.success) {
-        alert(`Events updated successfully!\n\nNew: ${result.stats.newEvents}\nUpdated: ${result.stats.updatedEvents}\nCanceled: ${result.stats.canceledEvents}\nDeleted: ${result.stats.deletedEvents}`);
+        await customAlert(`Events updated successfully!\n\nNew: ${result.stats.newEvents}\nUpdated: ${result.stats.updatedEvents}\nCanceled: ${result.stats.canceledEvents}\nDeleted: ${result.stats.deletedEvents}`, 'Update Complete');
       } else {
         setError(result.message);
       }
@@ -199,12 +203,12 @@ export default function AdminPage() {
                     });
                     const result = await response.json();
                     if (result.success) {
-                      alert(`Test notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
+                      await customAlert(`Test notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`, 'Test Complete');
                     } else {
-                      alert(result.message || result.error || 'Failed to send test notifications');
+                      await customAlert(result.message || result.error || 'Failed to send test notifications', 'Error');
                     }
                   } catch (error) {
-                    alert('Error sending test notifications: ' + error);
+                    await customAlert('Error sending test notifications: ' + error, 'Error');
                   }
                 }}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
@@ -217,12 +221,12 @@ export default function AdminPage() {
                     const response = await fetch('/api/admin/send-notifications', { method: 'POST' });
                     const result = await response.json();
                     if (result.sent) {
-                      alert(`Notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`);
+                      await customAlert(`Notifications sent!\nEmails: ${result.emailsSent}\nTexts: ${result.textsSent}\nUsers notified: ${result.usersNotified}`, 'Notifications Sent');
                     } else {
-                      alert(result.reason || result.message || 'No notifications sent');
+                      await customAlert(result.reason || result.message || 'No notifications sent', 'No Notifications');
                     }
                   } catch (error) {
-                    alert('Error sending notifications: ' + error);
+                    await customAlert('Error sending notifications: ' + error, 'Error');
                   }
                 }}
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
@@ -261,19 +265,20 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={async () => {
-                  if (!confirm('This will permanently delete ALL purchased tickets from the database. This action cannot be undone. Are you sure?')) {
+                  const confirmed = await customConfirm('This will permanently delete ALL purchased tickets from the database. This action cannot be undone. Are you sure?', 'Clear All Tickets');
+                  if (!confirmed) {
                     return;
                   }
                   try {
                     const response = await fetch('/api/admin/clear-tickets', { method: 'DELETE' });
                     const result = await response.json();
                     if (response.ok) {
-                      alert(`Successfully deleted ${result.deletedCount} tickets`);
+                      await customAlert(`Successfully deleted ${result.deletedCount} tickets`, 'Success');
                     } else {
-                      alert(result.error || 'Failed to clear tickets');
+                      await customAlert(result.error || 'Failed to clear tickets', 'Error');
                     }
                   } catch (error) {
-                    alert('Error clearing tickets: ' + error);
+                    await customAlert('Error clearing tickets: ' + error, 'Error');
                   }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
@@ -463,6 +468,9 @@ export default function AdminPage() {
           )}
         </div>
       </main>
+      
+      {/* Custom Alert Component */}
+      <AlertComponent />
     </div>
   );
 }

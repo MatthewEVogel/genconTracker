@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
+import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 
 interface ParsedTransaction {
   eventId: string;
@@ -20,6 +21,7 @@ interface ParseResults {
 export default function TransactionsPage() {
   const router = useRouter();
   const { user } = useUserStore();
+  const { customAlert, AlertComponent } = useCustomAlerts();
   const [transactionText, setTransactionText] = useState('');
   const [parseResults, setParseResults] = useState<ParseResults | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -81,7 +83,7 @@ export default function TransactionsPage() {
 
   const handleParseTransactions = async () => {
     if (!transactionText.trim()) {
-      alert('Please paste your transaction data first.');
+      await customAlert('Please paste your transaction data first.', 'Missing Data');
       return;
     }
 
@@ -407,6 +409,9 @@ export default function TransactionsPage() {
           </div>
         )}
       </main>
+      
+      {/* Custom Alert Component */}
+      <AlertComponent />
     </div>
   );
 }

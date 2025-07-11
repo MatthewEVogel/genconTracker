@@ -4,6 +4,7 @@ import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
 import { EventService, Event, Pagination } from "@/lib/services/client/eventService";
 import { ScheduleService } from "@/lib/services/client/scheduleService";
+import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 
 
 interface ConflictModal {
@@ -24,6 +25,7 @@ const DAYS = ['All Days', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export default function EventsPage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
+  const { customAlert, AlertComponent } = useCustomAlerts();
   const [events, setEvents] = useState<Event[]>([]);
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('All Days');
@@ -200,9 +202,9 @@ export default function EventsPage() {
       await fetchUserEvents();
       
       // Show success message
-      alert('Event added to your schedule!');
+      await customAlert('Event added to your schedule!', 'Success');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
     }
   };
 
@@ -216,7 +218,7 @@ export default function EventsPage() {
       conflicts: [],
       capacityWarning: false
     });
-    alert('Event added to your schedule with conflicts noted!');
+    await customAlert('Event added to your schedule with conflicts noted!', 'Success');
   };
 
   const handleCancelAddEvent = async () => {
@@ -238,6 +240,22 @@ export default function EventsPage() {
     });
   };
 
+  // Handle escape key press for conflict modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && conflictModal.show) {
+        handleCancelAddEvent();
+      }
+    };
+
+    if (conflictModal.show) {
+      document.addEventListener('keydown', handleEscapeKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
+    }
+  }, [conflictModal.show]);
+
   const handleRemoveEvent = async (eventId: string) => {
     if (!user) return;
 
@@ -248,9 +266,9 @@ export default function EventsPage() {
       await fetchUserEvents();
       
       // Show success message
-      alert('Event removed from your schedule!');
+      await customAlert('Event removed from your schedule!', 'Success');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
     }
   };
 
@@ -770,6 +788,9 @@ export default function EventsPage() {
           </div>
         </div>
       )}
+      
+      {/* Custom Alert Component */}
+      <AlertComponent />
     </div>
   );
 }
