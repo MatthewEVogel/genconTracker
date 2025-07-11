@@ -67,8 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Check if refund already exists
             const existingRefund = await prisma.refundedEvents.findUnique({
               where: {
-                userId_ticketId: {
-                  userId: userId,
+                userName_ticketId: {
+                  userName: transaction.recipient,
                   ticketId: purchasedEvent.id
                 }
               }
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               // Create refund record
               await prisma.refundedEvents.create({
                 data: {
-                  userId: userId,
+                  userName: transaction.recipient,
                   ticketId: purchasedEvent.id
                 }
               });
@@ -101,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               // Now create the refund
               await prisma.refundedEvents.create({
                 data: {
-                  userId: userId,
+                  userName: transaction.recipient,
                   ticketId: newPurchase.id
                 }
               });

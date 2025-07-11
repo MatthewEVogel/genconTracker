@@ -14,24 +14,23 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { userId } = req.query;
+    const { userName, ticketId } = req.query;
 
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ error: 'Valid user ID is required' });
+    if (!userName || typeof userName !== 'string' || !ticketId || typeof ticketId !== 'string') {
+      return res.status(400).json({ error: 'Valid user name and ticket ID are required' });
     }
 
     if (req.method === 'GET') {
-      // Get refunded events by user ID
-      const includeDetails = req.query.includeDetails === 'true';
-      const data = await RefundedEventsService.getRefundedEventsByUserId(userId, includeDetails);
-      return res.status(200).json(data);
+      // Check if a ticket is refunded for a specific user
+      const isRefunded = await RefundedEventsService.isTicketRefunded(userName, ticketId);
+      return res.status(200).json({ isRefunded });
     }
 
     res.setHeader('Allow', ['GET']);
     return res.status(405).json({ error: `Method ${req.method} not allowed` });
 
   } catch (error: any) {
-    console.error('Error in refunded-events/user/[userId] API:', error);
+    console.error('Error in refunded-events/check API:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

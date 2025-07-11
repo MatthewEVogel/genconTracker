@@ -79,15 +79,13 @@ model PurchasedEvents {
 
 model RefundedEvents {
   id        String   @id @default(uuid())
-  userId    String
+  userName  String
   ticketId  String
-  createdAt DateTime @default(now())
   
-  user      UserList        @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticket    PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   
-  @@unique([userId, ticketId])
-  @@index([userId])
+  @@unique([userName, ticketId])
+  @@index([userName])
   @@index([ticketId])
 }
 
@@ -109,5 +107,4 @@ model UserList {
   
   createdAt DateTime @default(now())
   desiredEvents DesiredEvents[]
-  refundedEvents RefundedEvents[]
 }

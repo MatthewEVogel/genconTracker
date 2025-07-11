@@ -53,9 +53,9 @@ export default function TransactionsPage() {
     
     results.year = yearMatch[1];
     
-    // Regex to match transaction lines
+    // Regex to match transaction lines - handle nested parentheses and tabs
     const transactionRegex = new RegExp(
-      `Gen Con Indy ${results.year} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\(([^)]+)\\)\\s+([^\\t]+)\\s+\\$([0-9.]+)`,
+      `Gen Con Indy ${results.year} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\((.+?)\\)\\t([^\\t]+)\\t\\$([0-9.]+)`,
       'g'
     );
 
@@ -79,7 +79,7 @@ export default function TransactionsPage() {
     return results;
   };
 
-  const handleParseTransactions = () => {
+  const handleParseTransactions = async () => {
     if (!transactionText.trim()) {
       alert('Please paste your transaction data first.');
       return;
@@ -88,6 +88,46 @@ export default function TransactionsPage() {
     const results = parseTransactionData(transactionText);
     setParseResults(results);
     setSaveResults(null); // Clear previous save results
+    
+    // Auto-save if parsing was successful and no errors
+    if (results.transactions.length > 0 && results.errors.length === 0 && user) {
+      setIsProcessing(true);
+      
+      try {
+        const response = await fetch('/api/transactions/process', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            transactions: results.transactions,
+            year: results.year
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save transactions');
+        }
+
+        setSaveResults({
+          savedPurchases: data.savedPurchases || 0,
+          savedRefunds: data.savedRefunds || 0,
+          errors: data.errors || []
+        });
+
+      } catch (error) {
+        setSaveResults({
+          savedPurchases: 0,
+          savedRefunds: 0,
+          errors: [error instanceof Error ? error.message : 'An error occurred']
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+    }
   };
 
   const handleSaveTransactions = async () => {
@@ -187,21 +227,11 @@ export default function TransactionsPage() {
           <div className="mt-4 flex gap-3">
             <button
               onClick={handleParseTransactions}
-              disabled={!transactionText.trim()}
+              disabled={!transactionText.trim() || isProcessing}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
             >
-              Parse Transactions
+              {isProcessing ? 'Processing & Saving...' : 'Parse & Save Transactions'}
             </button>
-            
-            {parseResults && (
-              <button
-                onClick={handleSaveTransactions}
-                disabled={isProcessing || parseResults.errors.length > 0}
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-              >
-                {isProcessing ? 'Saving...' : 'Save to Database'}
-              </button>
-            )}
             
             <button
               onClick={handleClear}

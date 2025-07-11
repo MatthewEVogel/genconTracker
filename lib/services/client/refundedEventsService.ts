@@ -1,14 +1,7 @@
 export interface RefundedEvent {
   id: string;
-  userId: string;
+  userName: string;
   ticketId: string;
-  createdAt: string;
-  user?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
   ticket?: {
     id: string;
     eventId: string;
@@ -18,7 +11,7 @@ export interface RefundedEvent {
 }
 
 export interface CreateRefundedEventData {
-  userId: string;
+  userName: string;
   ticketId: string;
 }
 
@@ -51,10 +44,10 @@ export class RefundedEventsService {
     return data;
   }
 
-  // Get refunded events by user ID
-  static async getRefundedEventsByUserId(userId: string, includeDetails?: boolean): Promise<RefundedEventsResponse> {
+  // Get refunded events by user name
+  static async getRefundedEventsByUserName(userName: string, includeDetails?: boolean): Promise<RefundedEventsResponse> {
     const params = includeDetails ? '?includeDetails=true' : '';
-    const response = await fetch(`/api/refunded-events/user/${userId}${params}`);
+    const response = await fetch(`/api/refunded-events/user/${userName}${params}`);
     const data = await response.json();
     
     if (!response.ok) {
@@ -112,8 +105,8 @@ export class RefundedEventsService {
   }
 
   // Check if a ticket is refunded for a specific user
-  static async isTicketRefunded(userId: string, ticketId: string): Promise<{ isRefunded: boolean }> {
-    const response = await fetch(`/api/refunded-events/check/${userId}/${ticketId}`);
+  static async isTicketRefunded(userName: string, ticketId: string): Promise<{ isRefunded: boolean }> {
+    const response = await fetch(`/api/refunded-events/check/${userName}/${ticketId}`);
     const data = await response.json();
     
     if (!response.ok) {
@@ -124,8 +117,8 @@ export class RefundedEventsService {
   }
 
   // Get a specific refunded event record
-  static async getRefundedEvent(userId: string, ticketId: string): Promise<{ refundedEvent: RefundedEvent | null }> {
-    const response = await fetch(`/api/refunded-events/get/${userId}/${ticketId}`);
+  static async getRefundedEvent(userName: string, ticketId: string): Promise<{ refundedEvent: RefundedEvent | null }> {
+    const response = await fetch(`/api/refunded-events/get/${userName}/${ticketId}`);
     const data = await response.json();
     
     if (!response.ok) {
@@ -148,8 +141,8 @@ export class RefundedEventsService {
   }
 
   // Get count of refunded events by user
-  static async getRefundedEventsCountByUser(userId: string): Promise<{ count: number }> {
-    const response = await fetch(`/api/refunded-events/count/user/${userId}`);
+  static async getRefundedEventsCountByUser(userName: string): Promise<{ count: number }> {
+    const response = await fetch(`/api/refunded-events/count/user/${userName}`);
     const data = await response.json();
     
     if (!response.ok) {

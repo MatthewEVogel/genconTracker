@@ -23,14 +23,14 @@ export default async function handler(
 
     if (req.method === 'POST') {
       // Create a new refunded event record
-      const { userId, ticketId } = req.body;
+      const { userName, ticketId } = req.body;
 
-      if (!userId || !ticketId) {
-        return res.status(400).json({ error: 'User ID and Ticket ID are required' });
+      if (!userName || !ticketId) {
+        return res.status(400).json({ error: 'User name and Ticket ID are required' });
       }
 
       const data = await RefundedEventsService.createRefundedEvent({
-        userId,
+        userName,
         ticketId
       });
 

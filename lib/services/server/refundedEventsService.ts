@@ -2,15 +2,8 @@ import { prisma } from '@/lib/prisma';
 
 export interface RefundedEvent {
   id: string;
-  userId: string;
+  userName: string;
   ticketId: string;
-  createdAt: Date;
-  user?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
   ticket?: {
     id: string;
     eventId: string;
@@ -20,7 +13,7 @@ export interface RefundedEvent {
 }
 
 export interface CreateRefundedEventData {
-  userId: string;
+  userName: string;
   ticketId: string;
 }
 
@@ -37,14 +30,6 @@ export class RefundedEventsService {
   static async getAllRefundedEvents(includeDetails?: boolean): Promise<RefundedEventsResponse> {
     const refundedEvents = await prisma.refundedEvents.findMany({
       include: includeDetails ? {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         ticket: {
           select: {
             id: true,
@@ -55,26 +40,18 @@ export class RefundedEventsService {
         }
       } : undefined,
       orderBy: {
-        createdAt: 'desc'
+        userName: 'asc'
       }
     });
 
     return { refundedEvents };
   }
 
-  // Get refunded events by user ID
-  static async getRefundedEventsByUserId(userId: string, includeDetails?: boolean): Promise<RefundedEventsResponse> {
+  // Get refunded events by user name
+  static async getRefundedEventsByUserName(userName: string, includeDetails?: boolean): Promise<RefundedEventsResponse> {
     const refundedEvents = await prisma.refundedEvents.findMany({
-      where: { userId },
+      where: { userName },
       include: includeDetails ? {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         ticket: {
           select: {
             id: true,
@@ -85,7 +62,7 @@ export class RefundedEventsService {
         }
       } : undefined,
       orderBy: {
-        createdAt: 'desc'
+        ticketId: 'asc'
       }
     });
 
@@ -97,14 +74,6 @@ export class RefundedEventsService {
     const refundedEvents = await prisma.refundedEvents.findMany({
       where: { ticketId },
       include: includeDetails ? {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         ticket: {
           select: {
             id: true,
@@ -115,7 +84,7 @@ export class RefundedEventsService {
         }
       } : undefined,
       orderBy: {
-        createdAt: 'desc'
+        userName: 'asc'
       }
     });
 
@@ -127,8 +96,8 @@ export class RefundedEventsService {
     // Check if this refund record already exists
     const existing = await prisma.refundedEvents.findUnique({
       where: {
-        userId_ticketId: {
-          userId: data.userId,
+        userName_ticketId: {
+          userName: data.userName,
           ticketId: data.ticketId
         }
       }
@@ -136,15 +105,6 @@ export class RefundedEventsService {
 
     if (existing) {
       throw new Error('This ticket has already been marked as refunded for this user');
-    }
-
-    // Verify that the user exists
-    const user = await prisma.userList.findUnique({
-      where: { id: data.userId }
-    });
-
-    if (!user) {
-      throw new Error('User not found');
     }
 
     // Verify that the ticket exists
@@ -159,18 +119,10 @@ export class RefundedEventsService {
     // Create the refunded event record
     const refundedEvent = await prisma.refundedEvents.create({
       data: {
-        userId: data.userId,
+        userName: data.userName,
         ticketId: data.ticketId
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         ticket: {
           select: {
             id: true,
@@ -201,11 +153,11 @@ export class RefundedEventsService {
   }
 
   // Check if a ticket is refunded for a specific user
-  static async isTicketRefunded(userId: string, ticketId: string): Promise<boolean> {
+  static async isTicketRefunded(userName: string, ticketId: string): Promise<boolean> {
     const refundedEvent = await prisma.refundedEvents.findUnique({
       where: {
-        userId_ticketId: {
-          userId,
+        userName_ticketId: {
+          userName,
           ticketId
         }
       }
@@ -215,23 +167,15 @@ export class RefundedEventsService {
   }
 
   // Get a specific refunded event record
-  static async getRefundedEvent(userId: string, ticketId: string): Promise<RefundedEvent | null> {
+  static async getRefundedEvent(userName: string, ticketId: string): Promise<RefundedEvent | null> {
     const refundedEvent = await prisma.refundedEvents.findUnique({
       where: {
-        userId_ticketId: {
-          userId,
+        userName_ticketId: {
+          userName,
           ticketId
         }
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         ticket: {
           select: {
             id: true,
@@ -251,10 +195,10 @@ export class RefundedEventsService {
     return await prisma.refundedEvents.count();
   }
 
-  // Get count of refunded events by user
-  static async getRefundedEventsCountByUser(userId: string): Promise<number> {
+  // Get count of refunded events by user name
+  static async getRefundedEventsCountByUserName(userName: string): Promise<number> {
     return await prisma.refundedEvents.count({
-      where: { userId }
+      where: { userName }
     });
   }
 
@@ -272,20 +216,12 @@ export class RefundedEventsService {
       recentRefunds
     ] = await Promise.all([
       prisma.refundedEvents.count(),
-      prisma.refundedEvents.groupBy({ by: ['userId'] }).then(result => result.length),
+      prisma.refundedEvents.groupBy({ by: ['userName'] }).then(result => result.length),
       prisma.refundedEvents.groupBy({ by: ['ticketId'] }).then(result => result.length),
       prisma.refundedEvents.findMany({
         take: 10,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { userName: 'asc' },
         include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          },
           ticket: {
             select: {
               id: true,
