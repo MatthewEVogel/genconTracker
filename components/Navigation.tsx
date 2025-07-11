@@ -18,15 +18,15 @@ export default function Navigation({ title = "GenCon Events", currentPage }: Nav
       if (user?.provider === 'google') {
         // do not auto-redirect, so we can clear our store first
         console.log('Signing out Google user');
-        const { url } = await signOut({
+        await signOut({
           redirect: false,
           callbackUrl: '/',
         });
-        console.log('NextAuth signOut completed, url:', url);
+        console.log('NextAuth signOut completed');
         
         logout();               // clear Zustand store
-        console.log('Store cleared, redirecting to:', url);
-        router.push(url!);      // now navigate to callbackUrl
+        console.log('Store cleared, redirecting to home');
+        router.push('/');       // redirect to home page
         return;
       } else {
         console.log('Signing out regular user');
