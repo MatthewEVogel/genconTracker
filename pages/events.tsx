@@ -5,6 +5,7 @@ import Navigation from "@/components/Navigation";
 import { EventService, Event, Pagination } from "@/lib/services/client/eventService";
 import { ScheduleService } from "@/lib/services/client/scheduleService";
 import { useCustomAlerts } from "@/hooks/useCustomAlerts";
+import EventTooltip from "@/components/EventTooltip";
 
 
 interface ConflictModal {
@@ -524,14 +525,14 @@ export default function EventsPage() {
                 const isUserEvent = userEventIds.includes(event.id);
                 
                 return (
-                  <div
-                    key={event.id}
-                    className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow ${
-                      event.isCanceled 
-                        ? 'bg-red-50 border-2 border-red-200' 
-                        : 'bg-white'
-                    }`}
-                  >
+                  <EventTooltip key={event.id} event={event} isUserEvent={isUserEvent}>
+                    <div
+                      className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer ${
+                        event.isCanceled 
+                          ? 'bg-red-50 border-2 border-red-200' 
+                          : 'bg-white'
+                      }`}
+                    >
                     {/* Canceled Event Banner */}
                     {event.isCanceled && (
                       <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
@@ -655,7 +656,8 @@ export default function EventsPage() {
                         </button>
                       )}
                     </div>
-                  </div>
+                    </div>
+                  </EventTooltip>
                 );
               })}
             </div>
