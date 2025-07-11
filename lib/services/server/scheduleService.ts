@@ -134,7 +134,7 @@ export class ScheduleService {
 
     return {
       message: 'Event added to schedule',
-      conflicts,
+      conflicts: conflicts.length > 0 ? conflicts : undefined,
       capacityWarning
     };
   }
@@ -220,8 +220,15 @@ export class ScheduleService {
     }
 
     // Check capacity warning
-    if (newEvent.ticketsAvailable !== null && newEvent.ticketsAvailable <= 0) {
-      capacityWarning = true;
+    if (newEvent.ticketsAvailable !== null) {
+      const currentCount = await prisma.desiredEvents.count({
+        where: { eventsListId: newEvent.id }
+      });
+      
+      // Warning if we're at or over capacity (including the one we just added)
+      if (currentCount >= newEvent.ticketsAvailable) {
+        capacityWarning = true;
+      }
     }
 
     return { conflicts, capacityWarning };
