@@ -12,13 +12,23 @@ Users can now hover over event cards in the event browser to see a detailed tool
 
 #### EventTooltip Component
 - **Location**: `components/EventTooltip.tsx`
-- **Purpose**: A reusable tooltip component that wraps around event cards
+- **Purpose**: A reusable tooltip component that wraps around event cards in the events browser
 - **Features**:
-  - Smooth hover animations with delay
-  - Intelligent positioning (appears above the event card)
+  - Smooth hover animations with 800ms delay
+  - Mouse-following positioning for optimal viewing
   - Rich content display with organized sections
   - Responsive design that works on different screen sizes
   - Proper event listener cleanup to prevent memory leaks
+
+#### ScheduleEventTooltip Component
+- **Location**: `components/ScheduleEventTooltip.tsx`
+- **Purpose**: A specialized tooltip component for events in the schedule timeline
+- **Features**:
+  - Optimized for ScheduleEvent data structure
+  - Same mouse-following behavior as EventTooltip
+  - Calculated duration display from start/end times
+  - Simplified content focused on schedule-relevant information
+  - Consistent 800ms delay timing
 
 ### Integration
 
@@ -27,9 +37,18 @@ Users can now hover over event cards in the event browser to see a detailed tool
 - **Implementation**: Each event card is wrapped with the `EventTooltip` component
 - **User Experience**: 
   - Hover over any event card to see detailed information
-  - Tooltip appears after 300ms delay to prevent accidental triggers
+  - Tooltip appears after 800ms delay to prevent accidental triggers
   - Tooltip disappears after 100ms delay when mouse leaves
   - Cursor changes to pointer to indicate interactivity
+
+#### Schedule Page Integration
+- **Location**: `pages/schedule.tsx` and `components/Timeline.tsx`
+- **Implementation**: Each event in the timeline is wrapped with the `ScheduleEventTooltip` component
+- **User Experience**:
+  - Hover over any event block in the timeline to see detailed information
+  - Same 800ms delay and mouse-following behavior as events page
+  - Works for all users' events in the timeline view
+  - Tooltip follows mouse cursor for optimal positioning
 
 ## Tooltip Content
 
@@ -136,13 +155,24 @@ Potential improvements that could be added:
 ## Usage Examples
 
 ### For Users
+
+#### Events Page
 1. **Browse Events**: Navigate to the Events page
 2. **Hover to Explore**: Move your mouse over any event card
 3. **View Details**: Read comprehensive information in the tooltip
 4. **Compare Events**: Hover over multiple events to compare
 5. **Make Decisions**: Use detailed info to decide which events to add
 
+#### Schedule Page
+1. **View Timeline**: Navigate to the Schedule page
+2. **Hover on Timeline Events**: Move your mouse over any colored event block
+3. **See Event Details**: View event information without clicking
+4. **Check Other Users**: Hover over friends' events to see what they're attending
+5. **Quick Reference**: Get event details while planning your schedule
+
 ### For Developers
+
+#### Events Page Tooltip
 ```typescript
 // Using the EventTooltip component
 <EventTooltip event={eventData} isUserEvent={isInSchedule}>
@@ -150,6 +180,16 @@ Potential improvements that could be added:
     {/* Event card content */}
   </div>
 </EventTooltip>
+```
+
+#### Schedule Page Tooltip
+```typescript
+// Using the ScheduleEventTooltip component
+<ScheduleEventTooltip event={scheduleEvent} isUserEvent={isInSchedule}>
+  <div className="timeline-event">
+    {/* Timeline event content */}
+  </div>
+</ScheduleEventTooltip>
 ```
 
 ## Implementation Notes

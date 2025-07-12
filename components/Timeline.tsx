@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ScheduleUser, ScheduleEvent } from '@/lib/services/client/scheduleService';
+import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
 
 interface TimelineProps {
   scheduleData: ScheduleUser[];
@@ -247,25 +248,30 @@ export default function Timeline({
                       const eventColor = getEventColor(event.id);
                       
                       return (
-                        <div
-                          key={event.id}
-                          className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
-                            hasConflict 
-                              ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
-                              : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
-                          }`}
-                          style={position}
-                          onClick={() => setSelectedEvent(event)}
+                        <ScheduleEventTooltip 
+                          key={event.id} 
+                          event={event} 
+                          isUserEvent={isUserEvent}
                         >
-                          <div className="font-medium truncate">{event.title}</div>
-                          <div className="truncate opacity-75">
-                            {startTime.toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}
+                          <div
+                            className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                              hasConflict 
+                                ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
+                            }`}
+                            style={position}
+                            onClick={() => setSelectedEvent(event)}
+                          >
+                            <div className="font-medium truncate">{event.title}</div>
+                            <div className="truncate opacity-75">
+                              {startTime.toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
+                            </div>
                           </div>
-                        </div>
+                        </ScheduleEventTooltip>
                       );
                     })}
                   </div>
