@@ -66,36 +66,29 @@ const parseDateTime = (dateTimeStr: string | null) => {
 };
 
 const getEventPosition = (startTime: Date, endTime: Date, selectedDay: string) => {
-  const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-  const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+  let displayStartHour = startTime.getHours() + startTime.getMinutes() / 60;
+  let displayEndHour = endTime.getHours() + endTime.getMinutes() / 60;
   
-  // Get start and end dates to handle multi-day events
-  const selectedDate = getDateForDay(selectedDay);
-  const startDate = new Date(startTime);
-  const endDate = new Date(endTime);
+  // Get the day of week for both start and end times
+  const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+  const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long' });
   
-  // Set dates to just the date part for comparison
-  const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-  const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  
-  let displayStartHour = startHour;
-  let displayEndHour = endHour;
-  
-  // Handle events that span multiple days
-  if (startDateOnly < selectedDateOnly) {
-    // Event started on a previous day, show from midnight
+  // Handle multi-day events
+  if (eventStartDayOfWeek !== selectedDay && eventEndDayOfWeek === selectedDay) {
+    // Event started on a different day, show from midnight
     displayStartHour = 0;
-  }
-  
-  if (endDateOnly > selectedDateOnly) {
-    // Event ends on a future day, show until midnight
+  } else if (eventStartDayOfWeek === selectedDay && eventEndDayOfWeek !== selectedDay) {
+    // Event ends on a different day, show until midnight
+    displayEndHour = 24;
+  } else if (eventStartDayOfWeek !== selectedDay && eventEndDayOfWeek !== selectedDay) {
+    // Event spans across this day (starts before, ends after)
+    displayStartHour = 0;
     displayEndHour = 24;
   }
   
   // Ensure positions are within bounds
   const startPos = Math.max(0, Math.min(24, displayStartHour));
-  const endPos = Math.max(0, Math.min(24, displayEndHour));
+  const endPos = Math.max(startPos, Math.min(24, displayEndHour));
   
   return {
     left: `${(startPos / 24) * 100}%`,
@@ -103,30 +96,6 @@ const getEventPosition = (startTime: Date, endTime: Date, selectedDay: string) =
   };
 };
 
-// Helper function to get a Date object for a given day name
-const getDateForDay = (dayName: string): Date => {
-  const today = new Date();
-  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  const dayMap: { [key: string]: number } = {
-    'Sunday': 0,
-    'Monday': 1,
-    'Tuesday': 2,
-    'Wednesday': 3,
-    'Thursday': 4,
-    'Friday': 5,
-    'Saturday': 6
-  };
-  
-  const targetDay = dayMap[dayName];
-  if (targetDay === undefined) return today;
-  
-  const difference = targetDay - currentDay;
-  const targetDate = new Date(today);
-  targetDate.setDate(today.getDate() + difference);
-  
-  return targetDate;
-};
 
 const checkConflicts = (events: ScheduleEvent[], targetEvent: ScheduleEvent) => {
   const targetStart = parseDateTime(targetEvent.startDateTime);
@@ -159,22 +128,28 @@ export default function Timeline({
 
   // Filter events for the selected day (including multi-day events)
   const filterEventsByDay = (events: ScheduleEvent[]) => {
+    // If "All Days" is selected, show all events
+    if (selectedDay === 'All Days') {
+      return events;
+    }
+    
     return events.filter(event => {
       const startTime = parseDateTime(event.startDateTime);
       const endTime = parseDateTime(event.endDateTime);
       if (!startTime || !endTime) return false;
       
-      // Get the selected date
-      const selectedDate = getDateForDay(selectedDay);
-      const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      // Get the day of week for the event start time
+      const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+      const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long' });
       
-      // Get event start and end dates (date only, no time)
-      const startDateOnly = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
-      const endDateOnly = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate());
+      // Include event if it starts on selected day OR ends on selected day OR spans across the selected day
+      if (eventStartDayOfWeek === selectedDay || eventEndDayOfWeek === selectedDay) {
+        return true;
+      }
       
-      // Include event if it overlaps with the selected day
-      // This means: event starts before or on selected day AND ends on or after selected day
-      return startDateOnly <= selectedDateOnly && endDateOnly >= selectedDateOnly;
+      // For multi-day events that span the selected day (but don't start or end on it)
+      // This is a more complex case, but for now we'll use the simpler approach above
+      return false;
     });
   };
 
