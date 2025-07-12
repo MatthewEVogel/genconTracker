@@ -69,7 +69,7 @@ export default function EventTooltip({ event, children, isUserEvent = false }: E
 
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true);
-    }, 300); // Small delay before showing
+    }, 800); // Longer delay before showing to prevent accidental triggers
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {

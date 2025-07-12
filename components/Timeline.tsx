@@ -10,7 +10,7 @@ interface TimelineProps {
   userEventIds: string[];
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 8); // 8 AM to 12 AM (midnight)
+const HOURS = Array.from({ length: 24 }, (_, i) => i); // 12 AM to 11 PM (24-hour view)
 
 const formatTime = (hour: number) => {
   if (hour === 0) return '12 AM';
@@ -65,18 +65,67 @@ const parseDateTime = (dateTimeStr: string | null) => {
   }
 };
 
-const getEventPosition = (startTime: Date, endTime: Date) => {
+const getEventPosition = (startTime: Date, endTime: Date, selectedDay: string) => {
   const startHour = startTime.getHours() + startTime.getMinutes() / 60;
   const endHour = endTime.getHours() + endTime.getMinutes() / 60;
   
-  // Convert to grid positions (8 AM = 0, 9 AM = 1, etc.)
-  const startPos = Math.max(0, startHour - 8);
-  const endPos = Math.min(17, endHour - 8);
+  // Get start and end dates to handle multi-day events
+  const selectedDate = getDateForDay(selectedDay);
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+  
+  // Set dates to just the date part for comparison
+  const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  
+  let displayStartHour = startHour;
+  let displayEndHour = endHour;
+  
+  // Handle events that span multiple days
+  if (startDateOnly < selectedDateOnly) {
+    // Event started on a previous day, show from midnight
+    displayStartHour = 0;
+  }
+  
+  if (endDateOnly > selectedDateOnly) {
+    // Event ends on a future day, show until midnight
+    displayEndHour = 24;
+  }
+  
+  // Ensure positions are within bounds
+  const startPos = Math.max(0, Math.min(24, displayStartHour));
+  const endPos = Math.max(0, Math.min(24, displayEndHour));
   
   return {
-    left: `${(startPos / 17) * 100}%`,
-    width: `${((endPos - startPos) / 17) * 100}%`
+    left: `${(startPos / 24) * 100}%`,
+    width: `${((endPos - startPos) / 24) * 100}%`
   };
+};
+
+// Helper function to get a Date object for a given day name
+const getDateForDay = (dayName: string): Date => {
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  
+  const dayMap: { [key: string]: number } = {
+    'Sunday': 0,
+    'Monday': 1,
+    'Tuesday': 2,
+    'Wednesday': 3,
+    'Thursday': 4,
+    'Friday': 5,
+    'Saturday': 6
+  };
+  
+  const targetDay = dayMap[dayName];
+  if (targetDay === undefined) return today;
+  
+  const difference = targetDay - currentDay;
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + difference);
+  
+  return targetDate;
 };
 
 const checkConflicts = (events: ScheduleEvent[], targetEvent: ScheduleEvent) => {
@@ -108,14 +157,24 @@ export default function Timeline({
 }: TimelineProps) {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
 
-  // Filter events for the selected day
+  // Filter events for the selected day (including multi-day events)
   const filterEventsByDay = (events: ScheduleEvent[]) => {
     return events.filter(event => {
-      const eventDate = parseDateTime(event.startDateTime);
-      if (!eventDate) return false;
+      const startTime = parseDateTime(event.startDateTime);
+      const endTime = parseDateTime(event.endDateTime);
+      if (!startTime || !endTime) return false;
       
-      const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'long' });
-      return dayOfWeek === selectedDay;
+      // Get the selected date
+      const selectedDate = getDateForDay(selectedDay);
+      const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      
+      // Get event start and end dates (date only, no time)
+      const startDateOnly = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+      const endDateOnly = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate());
+      
+      // Include event if it overlaps with the selected day
+      // This means: event starts before or on selected day AND ends on or after selected day
+      return startDateOnly <= selectedDateOnly && endDateOnly >= selectedDateOnly;
     });
   };
 
@@ -174,7 +233,7 @@ export default function Timeline({
         <div className="flex-1">
           {/* Timeline Header */}
           <div className="relative mb-4">
-            <div className="grid grid-cols-17 gap-0 text-xs text-gray-500 border-b pb-2">
+            <div className="grid grid-cols-24 gap-0 text-xs text-gray-500 border-b pb-2">
               {HOURS.map(hour => (
                 <div key={hour} className="text-center">
                   {formatTime(hour)}
@@ -193,7 +252,7 @@ export default function Timeline({
                 <div key={user.id} className="relative">
                   {/* Timeline Row */}
                   <div className="relative h-16 bg-gray-50 rounded border">
-                    <div className="absolute inset-0 grid grid-cols-17 gap-0">
+                    <div className="absolute inset-0 grid grid-cols-24 gap-0">
                       {HOURS.map(hour => (
                         <div key={hour} className="border-r border-gray-200 last:border-r-0" />
                       ))}
@@ -206,7 +265,7 @@ export default function Timeline({
                       
                       if (!startTime || !endTime) return null;
                       
-                      const position = getEventPosition(startTime, endTime);
+                      const position = getEventPosition(startTime, endTime, selectedDay);
                       const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
                       const hasConflict = conflicts.length > 0;
                       const isUserEvent = userEventIds.includes(event.id);
