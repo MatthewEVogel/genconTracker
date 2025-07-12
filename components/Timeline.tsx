@@ -205,12 +205,12 @@ export default function Timeline({
         </div>
 
         {/* Right Column: Timeline */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0 overflow-x-auto">
           {/* Timeline Header */}
           <div className="relative mb-4">
-            <div className="grid grid-cols-24 gap-0 text-xs text-gray-500 border-b pb-2">
+            <div className="grid grid-cols-24 gap-0 text-xs text-gray-500 border-b pb-2" style={{ minWidth: '1200px' }}>
               {HOURS.map(hour => (
-                <div key={hour} className="text-center">
+                <div key={hour} className="text-center text-xs truncate">
                   {formatTime(hour)}
                 </div>
               ))}
@@ -226,7 +226,7 @@ export default function Timeline({
               return (
                 <div key={user.id} className="relative">
                   {/* Timeline Row */}
-                  <div className="relative h-16 bg-gray-50 rounded border">
+                  <div className="relative h-16 bg-gray-50 rounded border" style={{ minWidth: '1200px' }}>
                     <div className="absolute inset-0 grid grid-cols-24 gap-0">
                       {HOURS.map(hour => (
                         <div key={hour} className="border-r border-gray-200 last:border-r-0" />
