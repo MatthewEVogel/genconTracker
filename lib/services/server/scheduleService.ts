@@ -263,7 +263,7 @@ export class ScheduleService {
         const originalRecipientName = purchasedEvents[0]?.recipient || recipientName;
         scheduleUsers.push({
           id: `purchased-${recipientName}`, // Use a unique ID for purchased-only users
-          name: `${originalRecipientName} (Purchased)`,
+          name: `${originalRecipientName} (👻)`,
           events: purchasedScheduleEvents
         });
       }
@@ -342,7 +342,7 @@ export class ScheduleService {
             if (newStart < existingEnd && newEnd > existingStart) {
               conflicts.push({
                 id: eventData.id,
-                title: `${eventData.title} (👻)`,
+                title: `${eventData.title} (Purchased)`,
                 startDateTime: eventData.startDateTime,
                 endDateTime: eventData.endDateTime
               });
