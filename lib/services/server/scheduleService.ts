@@ -64,7 +64,30 @@ export class ScheduleService {
       }
     });
 
-    const scheduleData = this.transformUsersToScheduleData(users);
+    // Get purchased events that haven't been refunded
+    const purchasedEvents = await prisma.purchasedEvents.findMany({
+      include: {
+        refundedEvents: true
+      }
+    });
+
+    // Filter out purchased events that have been refunded
+    const activePurchasedEvents = purchasedEvents.filter(
+      purchased => purchased.refundedEvents.length === 0
+    );
+
+    // Get all events from EventsList for purchased events
+    const eventIds = activePurchasedEvents.map(pe => pe.eventId);
+    const eventsData = await prisma.eventsList.findMany({
+      where: {
+        id: { in: eventIds }
+      }
+    });
+
+    // Create a map for quick event lookup
+    const eventsMap = new Map(eventsData.map(event => [event.id, event]));
+
+    const scheduleData = this.transformUsersToScheduleData(users, activePurchasedEvents, eventsMap);
     return { scheduleData };
   }
 
@@ -169,8 +192,13 @@ export class ScheduleService {
   }
 
   // Private method to transform user data for schedule display
-  private static transformUsersToScheduleData(users: any[]): ScheduleUser[] {
-    return users.map(user => ({
+  private static transformUsersToScheduleData(
+    users: any[], 
+    activePurchasedEvents: any[], 
+    eventsMap: Map<string, any>
+  ): ScheduleUser[] {
+    // Start with existing users and their desired events
+    const scheduleUsers: ScheduleUser[] = users.map(user => ({
       id: user.id,
       name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
       events: user.desiredEvents.map((desiredEvent: any) => ({
@@ -184,6 +212,64 @@ export class ScheduleService {
         ticketsAvailable: desiredEvent.eventsList.ticketsAvailable
       }))
     }));
+
+    // Create a map of users by their genConName for quick lookup
+    const usersByGenConName = new Map<string, ScheduleUser>();
+    scheduleUsers.forEach(user => {
+      const matchingUser = users.find(u => u.id === user.id);
+      if (matchingUser?.genConName) {
+        usersByGenConName.set(matchingUser.genConName.toLowerCase().trim(), user);
+      }
+    });
+
+    // Group purchased events by recipient name
+    const purchasedEventsByRecipient = new Map<string, any[]>();
+    activePurchasedEvents.forEach(purchasedEvent => {
+      const recipientName = purchasedEvent.recipient.toLowerCase().trim();
+      if (!purchasedEventsByRecipient.has(recipientName)) {
+        purchasedEventsByRecipient.set(recipientName, []);
+      }
+      purchasedEventsByRecipient.get(recipientName)!.push(purchasedEvent);
+    });
+
+    // Add purchased events to matching users or create new user rows
+    for (const [recipientName, purchasedEvents] of purchasedEventsByRecipient) {
+      const matchingUser = usersByGenConName.get(recipientName);
+      
+      // Convert purchased events to schedule events
+      const purchasedScheduleEvents: ScheduleEvent[] = purchasedEvents
+        .map(pe => {
+          const eventData = eventsMap.get(pe.eventId);
+          if (!eventData) return null;
+          
+          return {
+            id: eventData.id,
+            title: eventData.title,
+            startDateTime: eventData.startDateTime,
+            endDateTime: eventData.endDateTime,
+            eventType: eventData.eventType,
+            location: eventData.location,
+            cost: eventData.cost,
+            ticketsAvailable: eventData.ticketsAvailable
+          } as ScheduleEvent;
+        })
+        .filter((event): event is ScheduleEvent => event !== null);
+
+      if (matchingUser) {
+        // Add purchased events to existing user's schedule
+        matchingUser.events.push(...purchasedScheduleEvents);
+      } else {
+        // Create new user row for purchased events with no matching genConName
+        const originalRecipientName = purchasedEvents[0]?.recipient || recipientName;
+        scheduleUsers.push({
+          id: `purchased-${recipientName}`, // Use a unique ID for purchased-only users
+          name: `${originalRecipientName} (Purchased)`,
+          events: purchasedScheduleEvents
+        });
+      }
+    }
+
+    return scheduleUsers;
   }
 
   // Private method to check for event conflicts and capacity warnings
@@ -214,6 +300,53 @@ export class ScheduleService {
               startDateTime: existingEvent.startDateTime,
               endDateTime: existingEvent.endDateTime
             });
+          }
+        }
+      }
+
+      // Also check for conflicts with purchased events for this user
+      const user = await prisma.userList.findUnique({
+        where: { id: userId }
+      });
+
+      if (user?.genConName) {
+        const purchasedEvents = await prisma.purchasedEvents.findMany({
+          where: {
+            recipient: {
+              equals: user.genConName,
+              mode: 'insensitive'
+            }
+          },
+          include: {
+            refundedEvents: true
+          }
+        });
+
+        // Filter out refunded events and check for conflicts
+        const activePurchasedEvents = purchasedEvents.filter(
+          pe => pe.refundedEvents.length === 0
+        );
+
+        for (const purchasedEvent of activePurchasedEvents) {
+          const eventData = await prisma.eventsList.findUnique({
+            where: { id: purchasedEvent.eventId }
+          });
+
+          if (eventData?.startDateTime && eventData?.endDateTime) {
+            const newStart = new Date(newEvent.startDateTime);
+            const newEnd = new Date(newEvent.endDateTime);
+            const existingStart = new Date(eventData.startDateTime);
+            const existingEnd = new Date(eventData.endDateTime);
+
+            // Check for overlap
+            if (newStart < existingEnd && newEnd > existingStart) {
+              conflicts.push({
+                id: eventData.id,
+                title: `${eventData.title} (Purchased)`,
+                startDateTime: eventData.startDateTime,
+                endDateTime: eventData.endDateTime
+              });
+            }
           }
         }
       }
