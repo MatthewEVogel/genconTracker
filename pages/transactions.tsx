@@ -46,18 +46,20 @@ export default function TransactionsPage() {
       errors: []
     };
 
-    // Find the GenCon year
-    const yearMatch = text.match(/Gen Con Indy (\d{4})/);
-    if (!yearMatch) {
-      results.errors.push('Could not find GenCon year in transaction data');
+    // Use current year instead of dynamically detecting from data
+    const currentYear = new Date().getFullYear().toString();
+    results.year = currentYear;
+    
+    // Check if the data contains any transactions for the current year
+    const currentYearPattern = `Gen Con Indy ${currentYear}`;
+    if (!text.includes(currentYearPattern)) {
+      results.errors.push(`No Gen Con ${currentYear} transactions found in the pasted data. Please make sure you're pasting current year transaction data.`);
       return results;
     }
     
-    results.year = yearMatch[1];
-    
-    // Regex to match transaction lines - handle nested parentheses and tabs
+    // Regex to match transaction lines for current year only - handle nested parentheses and tabs
     const transactionRegex = new RegExp(
-      `Gen Con Indy ${results.year} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\((.+?)\\)\\t([^\\t]+)\\t\\$([0-9.]+)`,
+      `Gen Con Indy ${currentYear} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\((.+?)\\)\\t([^\\t]+)\\t\\$([0-9.]+)`,
       'g'
     );
 
@@ -75,7 +77,7 @@ export default function TransactionsPage() {
     }
 
     if (results.transactions.length === 0) {
-      results.errors.push('No transaction lines found. Please check the format of your pasted data.');
+      results.errors.push(`No Gen Con ${currentYear} transaction lines found. Please check the format of your pasted data and ensure it contains current year transactions.`);
     }
 
     return results;

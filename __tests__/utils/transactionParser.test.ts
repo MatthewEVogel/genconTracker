@@ -25,18 +25,20 @@ function parseTransactionData(text: string): ParseResults {
     errors: []
   };
 
-  // Find the GenCon year
-  const yearMatch = text.match(/Gen Con Indy (\d{4})/);
-  if (!yearMatch) {
-    results.errors.push('Could not find GenCon year in transaction data');
+  // Use current year instead of dynamically detecting from data
+  const currentYear = new Date().getFullYear().toString();
+  results.year = currentYear;
+  
+  // Check if the data contains any transactions for the current year
+  const currentYearPattern = `Gen Con Indy ${currentYear}`;
+  if (!text.includes(currentYearPattern)) {
+    results.errors.push(`No Gen Con ${currentYear} transactions found in the pasted data. Please make sure you're pasting current year transaction data.`);
     return results;
   }
   
-  results.year = yearMatch[1];
-  
-  // Regex to match transaction lines - handle nested parentheses and tabs
+  // Regex to match transaction lines for current year only - handle nested parentheses and tabs
   const transactionRegex = new RegExp(
-    `Gen Con Indy ${results.year} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\((.+?)\\)\\t([^\\t]+)\\t\\$([0-9.]+)`,
+    `Gen Con Indy ${currentYear} - Ticket (Purchase|Return) - ([A-Z0-9]+) \\((.+?)\\)\\t([^\\t]+)\\t\\$([0-9.]+)`,
     'g'
   );
 
@@ -54,7 +56,7 @@ function parseTransactionData(text: string): ParseResults {
   }
 
   if (results.transactions.length === 0) {
-    results.errors.push('No transaction lines found. Please check the format of your pasted data.');
+    results.errors.push(`No Gen Con ${currentYear} transaction lines found. Please check the format of your pasted data and ensure it contains current year transactions.`);
   }
 
   return results;
@@ -80,7 +82,7 @@ Gen Con Indy 2025 - Ticket Return - NMN25ND286148 (Horus Heresy: The Age of Dark
 
     it('should extract the correct GenCon year', () => {
       const result = parseTransactionData(samplePurchaseData);
-      expect(result.year).toBe('2025');
+      expect(result.year).toBe(new Date().getFullYear().toString());
       expect(result.errors).toHaveLength(0);
     });
 
@@ -167,36 +169,39 @@ Gen Con Indy 2025 - Ticket Purchase - EVENT3 (Expensive Event)	Bob Wilson	$100.5
       expect(result.transactions[2].amount).toBe('100.50');
     });
 
-    it('should return error when no GenCon year found', () => {
+    it('should return error when no current year GenCon transactions found', () => {
+      const currentYear = new Date().getFullYear().toString();
       const invalidData = `Transaction: 2025/05/18 12:44 PM
 Description	Recipient	Amount
 Some other event - Ticket Purchase - EVENT1 (Test)	John Doe	$5.00`;
 
       const result = parseTransactionData(invalidData);
       
-      expect(result.year).toBe('');
+      expect(result.year).toBe(currentYear);
       expect(result.transactions).toHaveLength(0);
-      expect(result.errors).toContain('Could not find GenCon year in transaction data');
+      expect(result.errors).toContain(`No Gen Con ${currentYear} transactions found in the pasted data. Please make sure you're pasting current year transaction data.`);
     });
 
     it('should return error when no transaction lines found', () => {
-      const noTransactionsData = `Transaction: 2025/05/18 12:44 PM
+      const currentYear = new Date().getFullYear().toString();
+      const noTransactionsData = `Transaction: ${currentYear}/05/18 12:44 PM
 Description	Recipient	Amount
-Gen Con Indy 2025 - Some other format	John Doe	$5.00`;
+Gen Con Indy ${currentYear} - Some other format	John Doe	$5.00`;
 
       const result = parseTransactionData(noTransactionsData);
       
-      expect(result.year).toBe('2025');
+      expect(result.year).toBe(currentYear);
       expect(result.transactions).toHaveLength(0);
-      expect(result.errors).toContain('No transaction lines found. Please check the format of your pasted data.');
+      expect(result.errors).toContain(`No Gen Con ${currentYear} transaction lines found. Please check the format of your pasted data and ensure it contains current year transactions.`);
     });
 
     it('should handle empty input', () => {
+      const currentYear = new Date().getFullYear().toString();
       const result = parseTransactionData('');
       
-      expect(result.year).toBe('');
+      expect(result.year).toBe(currentYear);
       expect(result.transactions).toHaveLength(0);
-      expect(result.errors).toContain('Could not find GenCon year in transaction data');
+      expect(result.errors).toContain(`No Gen Con ${currentYear} transactions found in the pasted data. Please make sure you're pasting current year transaction data.`);
     });
 
     it('should handle malformed transaction lines gracefully', () => {
@@ -236,6 +241,40 @@ Gen Con Indy 2025 - Ticket Purchase - EVENT1 (Test with "quotes" & symbols!)	O'C
       expect(result.transactions).toHaveLength(1);
       expect(result.transactions[0].recipient).toBe("O'Connor, Mary-Jane");
       expect(result.transactions[0].description).toBe('Test with "quotes" & symbols!');
+    });
+
+    it('should reject old year transaction data', () => {
+      const currentYear = new Date().getFullYear().toString();
+      const oldYearData = `Transaction: 2024/05/18 12:44 PM
+Description	Recipient	Amount
+Gen Con Indy 2024 - Ticket Purchase - EVENT1 (Old Event)	John Doe	$5.00
+Gen Con Indy 2024 - Ticket Purchase - EVENT2 (Another Old Event)	Jane Smith	$10.00`;
+
+      const result = parseTransactionData(oldYearData);
+      
+      expect(result.year).toBe(currentYear);
+      expect(result.transactions).toHaveLength(0);
+      expect(result.errors).toContain(`No Gen Con ${currentYear} transactions found in the pasted data. Please make sure you're pasting current year transaction data.`);
+    });
+
+    it('should only parse current year transactions when mixed years are present', () => {
+      const currentYear = new Date().getFullYear().toString();
+      const mixedYearData = `Transaction: 2024/05/18 12:44 PM
+Description	Recipient	Amount
+Gen Con Indy 2024 - Ticket Purchase - OLD1 (Old Event)	John Doe	$5.00
+Gen Con Indy ${currentYear} - Ticket Purchase - NEW1 (Current Event)	Jane Smith	$10.00
+Gen Con Indy 2024 - Ticket Purchase - OLD2 (Another Old Event)	Bob Wilson	$15.00
+Gen Con Indy ${currentYear} - Ticket Return - NEW2 (Current Refund)	Alice Brown	$8.00`;
+
+      const result = parseTransactionData(mixedYearData);
+      
+      expect(result.year).toBe(currentYear);
+      expect(result.transactions).toHaveLength(2);
+      expect(result.transactions[0].eventId).toBe('NEW1');
+      expect(result.transactions[0].type).toBe('purchase');
+      expect(result.transactions[1].eventId).toBe('NEW2');
+      expect(result.transactions[1].type).toBe('refund');
+      expect(result.errors).toHaveLength(0);
     });
   });
 });
