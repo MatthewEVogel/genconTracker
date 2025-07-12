@@ -342,7 +342,7 @@ export class ScheduleService {
             if (newStart < existingEnd && newEnd > existingStart) {
               conflicts.push({
                 id: eventData.id,
-                title: `${eventData.title} (Purchased)`,
+                title: `${eventData.title} (👻)`,
                 startDateTime: eventData.startDateTime,
                 endDateTime: eventData.endDateTime
               });
