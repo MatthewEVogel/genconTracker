@@ -31,8 +31,12 @@ export default function LandingPage() {
           logout();
           setIsCheckingAuth(false);
         } else {
-          // User is logged in via manual registration
-          router.push("/schedule");
+          // User is logged in via manual registration - check approval status
+          if (user.provider === 'manual' && !user.approved) {
+            router.push("/waiting-approval");
+          } else {
+            router.push("/schedule");
+          }
         }
       } else {
         setIsCheckingAuth(false);
@@ -75,7 +79,13 @@ export default function LandingPage() {
       }
       
       setUser(data.userList);
-      router.push("/schedule");
+      
+      // Check if user needs approval
+      if (data.userList.provider === 'manual' && !data.userList.approved) {
+        router.push("/waiting-approval");
+      } else {
+        router.push("/schedule");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
