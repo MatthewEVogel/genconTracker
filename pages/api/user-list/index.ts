@@ -20,7 +20,7 @@ export default async function handler(
     }
 
     if (req.method === 'POST') {
-      const { firstName, lastName, email, isAdmin, googleId, provider, image, emailNotifications, pushNotifications } = req.body;
+      const { firstName, lastName, email, genConName, isAdmin, googleId, provider, image, emailNotifications, pushNotifications } = req.body;
 
       // Validate required fields
       if (!firstName || typeof firstName !== 'string' || !firstName.trim()) {
@@ -51,6 +51,7 @@ export default async function handler(
       const trimmedEmail = email.trim().toLowerCase();
       const trimmedFirstName = firstName.trim();
       const trimmedLastName = lastName.trim();
+      const trimmedGenConName = genConName?.trim() || `${trimmedFirstName} ${trimmedLastName}`;
       const isAdminAccount = trimmedEmail === 'matthewvogel1729@gmail.com' && 
                             trimmedFirstName === 'm-admin' && 
                             trimmedLastName === 'v-admin';
@@ -60,6 +61,7 @@ export default async function handler(
         firstName: trimmedFirstName,
         lastName: trimmedLastName,
         email: trimmedEmail,
+        genConName: trimmedGenConName,
         isAdmin: isAdminAccount || isAdmin || false,
         googleId,
         provider: provider || 'manual',

@@ -47,6 +47,7 @@ export default async function handler(
             firstName: trimmedFirstName,
             lastName: trimmedLastName,
             email: trimmedEmail,
+            genConName: `${trimmedFirstName} ${trimmedLastName}`,
             isAdmin: isAdminAccount,
             provider: "manual"
           }
