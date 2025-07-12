@@ -10,10 +10,22 @@ interface AdminUser {
   lastName: string;
   email: string;
   isAdmin: boolean;
+  approved: boolean;
+  provider: string;
   createdAt: string;
   _count: {
     userEvents: number;
   };
+}
+
+interface PendingUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  genConName: string;
+  provider: string;
+  createdAt: string;
 }
 
 interface UpdateResult {
@@ -35,9 +47,12 @@ export default function AdminPage() {
   const { user, logout } = useUserStore();
   const { customAlert, customConfirm, AlertComponent } = useCustomAlerts();
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingLoading, setPendingLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
   
   // Event update state
   const [updateLoading, setUpdateLoading] = useState(false);
@@ -58,6 +73,7 @@ export default function AdminPage() {
     }
 
     fetchUsers();
+    fetchPendingUsers();
   }, [user, router]);
 
   const fetchUsers = async () => {
@@ -79,6 +95,112 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingUsers = async () => {
+    if (!user) return;
+    
+    try {
+      setPendingLoading(true);
+      const response = await fetch('/api/admin/pending-users');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch pending users');
+      }
+      
+      setPendingUsers(data.userLists);
+    } catch (err) {
+      console.error('Error fetching pending users:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleApproveUser = async (pendingUser: PendingUser) => {
+    if (!user) return;
+    
+    const confirmed = await customConfirm(`Approve account for ${pendingUser.firstName} ${pendingUser.lastName} (${pendingUser.email})?`, 'Approve User');
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setApprovalLoading(pendingUser.id);
+      setError("");
+      
+      const response = await fetch('/api/admin/pending-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: pendingUser.id,
+          action: 'approve'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to approve user');
+      }
+      
+      // Remove user from pending list
+      setPendingUsers(pendingUsers.filter(u => u.id !== pendingUser.id));
+      
+      // Refresh users list to show the newly approved user
+      fetchUsers();
+      
+      await customAlert(`Successfully approved user: ${pendingUser.firstName} ${pendingUser.lastName}`, 'Success');
+    } catch (err) {
+      console.error('Error approving user:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setApprovalLoading(null);
+    }
+  };
+
+  const handleRejectUser = async (pendingUser: PendingUser) => {
+    if (!user) return;
+    
+    const confirmed = await customConfirm(`Reject and delete account for ${pendingUser.firstName} ${pendingUser.lastName} (${pendingUser.email})?\n\nThis action cannot be undone.`, 'Reject User');
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setApprovalLoading(pendingUser.id);
+      setError("");
+      
+      const response = await fetch('/api/admin/pending-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: pendingUser.id,
+          action: 'reject'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reject user');
+      }
+      
+      // Remove user from pending list
+      setPendingUsers(pendingUsers.filter(u => u.id !== pendingUser.id));
+      
+      await customAlert(`Successfully rejected and deleted account for: ${pendingUser.firstName} ${pendingUser.lastName}`, 'Success');
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setApprovalLoading(null);
     }
   };
 
@@ -360,6 +482,97 @@ export default function AdminPage() {
               <li>Canceled events with no user registrations will be deleted</li>
             </ul>
           </div>
+        </div>
+
+        {/* Pending User Approvals Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Pending User Approvals</h2>
+            <button
+              onClick={fetchPendingUsers}
+              disabled={pendingLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {pendingLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          <div className="text-sm text-gray-600 mb-4">
+            <p>Manual account registrations require admin approval before users can log in. Google users are automatically approved.</p>
+          </div>
+
+          {pendingLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-lg text-gray-600">Loading pending users...</div>
+            </div>
+          ) : pendingUsers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      GenCon Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Requested
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pendingUsers.map((pendingUser) => (
+                    <tr key={pendingUser.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {pendingUser.firstName} {pendingUser.lastName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{pendingUser.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{pendingUser.genConName}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(pendingUser.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleApproveUser(pendingUser)}
+                            disabled={approvalLoading === pendingUser.id}
+                            className="text-green-600 hover:text-green-900 transition disabled:opacity-50"
+                          >
+                            {approvalLoading === pendingUser.id ? 'Processing...' : 'Approve'}
+                          </button>
+                          <button
+                            onClick={() => handleRejectUser(pendingUser)}
+                            disabled={approvalLoading === pendingUser.id}
+                            className="text-red-600 hover:text-red-900 transition disabled:opacity-50"
+                          >
+                            {approvalLoading === pendingUser.id ? 'Processing...' : 'Reject'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg">No pending user approvals.</div>
+              <div className="text-gray-400 text-sm mt-2">All manual account requests have been processed.</div>
+            </div>
+          )}
         </div>
 
         {/* User Management Section */}

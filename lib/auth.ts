@@ -50,11 +50,17 @@ export const authOptions: NextAuthOptions = {
               updateData.image = user.image;
               updateData.firstName = (profile as any)?.given_name || existingUser.firstName;
               updateData.lastName = (profile as any)?.family_name || existingUser.lastName;
+              updateData.approved = true; // Auto-approve when linking Google account
             }
             
             // Update admin status if needed
             if (existingUser.isAdmin !== shouldBeAdmin) {
               updateData.isAdmin = shouldBeAdmin;
+            }
+            
+            // Auto-approve Google users if not already approved
+            if (!existingUser.approved && existingUser.provider === "google") {
+              updateData.approved = true;
             }
             
             // Only update if there are changes
@@ -83,6 +89,7 @@ export const authOptions: NextAuthOptions = {
                 provider: "google",
                 image: user.image,
                 isAdmin: isAdminAccount,
+                approved: true, // Auto-approve Google users
                 emailNotifications: false,
                 pushNotifications: false
               }
@@ -105,6 +112,12 @@ export const authOptions: NextAuthOptions = {
       });
 
       if (dbUser) {
+        // Check if user is approved (only for manual accounts)
+        if (dbUser.provider === "manual" && !dbUser.approved) {
+          // Return null to end the session for non-approved manual accounts
+          return null as any;
+        }
+
         session.user = {
           ...session.user,
           id: dbUser.id,

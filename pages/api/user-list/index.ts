@@ -63,6 +63,7 @@ export default async function handler(
         email: trimmedEmail,
         genConName: trimmedGenConName,
         isAdmin: isAdminAccount || isAdmin || false,
+        approved: (provider === 'google') || isAdminAccount, // Auto-approve Google users and admin accounts
         googleId,
         provider: provider || 'manual',
         image,

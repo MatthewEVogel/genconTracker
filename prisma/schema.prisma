@@ -1,111 +1,106 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("POSTGRES_PRISMA_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-
 model CalculationRun {
-  id              String   @id @default(uuid())
-  createdAt       DateTime @default(now())
-  totalUsers      Int
-  totalEvents     Int
-  errors          String   // JSON string of error messages array
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  totalUsers  Int
+  totalEvents Int
+  errors      String
 }
 
 model RegistrationTimer {
-  id              String   @id @default(uuid())
+  id               String   @id @default(uuid())
   registrationDate DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String   // User ID of admin who set it
-  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String
+
   @@map("registration_timer")
 }
 
 model DesiredEvents {
-  id            String @id @default(uuid())
-  userId        String
-  eventsListId  String
-  
-  user          UserList   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventsList    EventsList @relation(fields: [eventsListId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(uuid())
+  userId       String
+  eventsListId String
+  eventsList   EventsList @relation(fields: [eventsListId], references: [id], onDelete: Cascade)
+  user         UserList   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, eventsListId])
 }
 
 model EventsList {
-  id                String   @id // Game ID from TSV
-  title             String
-  shortDescription  String?
-  eventType         String?
-  gameSystem        String?
-  startDateTime     String?
-  endDateTime       String?
-  ageRequired       String?
+  id                 String          @id
+  title              String
+  shortDescription   String?
+  eventType          String?
+  gameSystem         String?
+  startDateTime      String?
+  endDateTime        String?
+  ageRequired        String?
   experienceRequired String?
-  materialsRequired String?
-  cost              String?
-  location          String?
-  ticketsAvailable  Int?
-  priority          Int      @default(1) // 1=Normal, 2=Important, 3=Critical
-  isCanceled        Boolean  @default(false)
-  
-  desiredEvents     DesiredEvents[]
+  materialsRequired  String?
+  cost               String?
+  location           String?
+  ticketsAvailable   Int?
+  priority           Int             @default(1)
+  isCanceled         Boolean         @default(false)
+  desiredEvents      DesiredEvents[]
 }
 
-
-
 model PurchasedEvents {
-  id          String   @id @default(uuid())
-  eventId     String   // Event ID - references EventsList
-  recipient   String   // Recipient name (from ticket)
-  purchaser   String   // Purchaser name (logged-in user)
-  
+  id             String           @id @default(uuid())
+  eventId        String
+  recipient      String
+  purchaser      String
   refundedEvents RefundedEvents[]
-  
+
   @@index([eventId])
 }
 
 model RefundedEvents {
-  id        String   @id @default(uuid())
-  userName  String
-  ticketId  String
-  
-  ticket    PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
+  id       String          @id @default(uuid())
+  userName String
+  ticketId String
+  ticket   PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
   @@unique([userName, ticketId])
   @@index([userName])
   @@index([ticketId])
 }
 
 model UserList {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  genConName String  // GenCon display name
-  isAdmin   Boolean  @default(false)
-  
-  // OAuth fields
-  googleId  String?  @unique
-  provider  String   @default("manual") // "manual" or "google"
-  image     String?  // Profile picture URL
-  
-  // Notification settings
-  emailNotifications Boolean @default(false)
-  pushNotifications Boolean @default(false)
-  
-  createdAt DateTime @default(now())
-  desiredEvents DesiredEvents[]
+  id                 String          @id @default(uuid())
+  firstName          String
+  lastName           String
+  email              String          @unique
+  genConName         String
+  isAdmin            Boolean         @default(false)
+  approved           Boolean         @default(false) // Admin approval for manual accounts
+  googleId           String?         @unique
+  provider           String          @default("manual")
+  image              String?
+  emailNotifications Boolean         @default(false)
+  pushNotifications  Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  desiredEvents      DesiredEvents[]
+}
+
+model pending_users {
+  id              String    @id
+  firstName       String
+  lastName        String
+  email           String    @unique
+  genConName      String
+  requestedAt     DateTime  @default(now())
+  status          String    @default("pending")
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?
 }

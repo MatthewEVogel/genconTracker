@@ -7,6 +7,7 @@ export interface UserListData {
   email: string;
   genConName: string;
   isAdmin: boolean;
+  approved: boolean;
   googleId?: string | null;
   provider: string;
   image?: string | null;
@@ -21,6 +22,7 @@ export interface CreateUserListData {
   email: string;
   genConName: string;
   isAdmin?: boolean;
+  approved?: boolean;
   googleId?: string;
   provider?: string;
   image?: string;
@@ -34,6 +36,7 @@ export interface UpdateUserListData {
   email?: string;
   genConName?: string;
   isAdmin?: boolean;
+  approved?: boolean;
   googleId?: string;
   provider?: string;
   image?: string;
@@ -107,6 +110,7 @@ export class UserListService {
         email: data.email.trim().toLowerCase(),
         genConName: data.genConName.trim(),
         isAdmin: data.isAdmin || false,
+        approved: data.approved || false,
         googleId: data.googleId || null,
         provider: data.provider || 'manual',
         image: data.image || null,
@@ -127,6 +131,7 @@ export class UserListService {
     if (data.email !== undefined) updateData.email = data.email.trim().toLowerCase();
     if (data.genConName !== undefined) updateData.genConName = data.genConName.trim();
     if (data.isAdmin !== undefined) updateData.isAdmin = data.isAdmin;
+    if (data.approved !== undefined) updateData.approved = data.approved;
     if (data.googleId !== undefined) updateData.googleId = data.googleId;
     if (data.provider !== undefined) updateData.provider = data.provider;
     if (data.image !== undefined) updateData.image = data.image;
@@ -173,5 +178,33 @@ export class UserListService {
     });
     
     return { userLists };
+  }
+
+  // Get pending approval users (manual accounts that are not approved)
+  static async getPendingUsers(): Promise<UserListsResponse> {
+    const userLists = await prisma.userList.findMany({
+      where: { 
+        provider: 'manual',
+        approved: false 
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+    
+    return { userLists };
+  }
+
+  // Approve user
+  static async approveUser(id: string): Promise<UserListResponse> {
+    const userList = await prisma.userList.update({
+      where: { id },
+      data: { approved: true }
+    });
+
+    return { userList };
+  }
+
+  // Reject user (delete the account)
+  static async rejectUser(id: string): Promise<void> {
+    await this.deleteUser(id);
   }
 }
