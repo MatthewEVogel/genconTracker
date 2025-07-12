@@ -137,7 +137,7 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
         onMouseEnter={handleMouseEnter}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative"
+        className="contents"
       >
         {children}
       </div>
