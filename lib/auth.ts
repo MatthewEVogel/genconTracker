@@ -12,6 +12,7 @@ declare module "next-auth" {
       image?: string | null
       firstName?: string
       lastName?: string
+      genConName?: string
       isAdmin?: boolean
       provider?: string
       emailNotifications?: boolean
@@ -68,12 +69,16 @@ export const authOptions: NextAuthOptions = {
             const adminEmails = ['matthewvogel1729@gmail.com', 'kencoder@gmail.com'];
             const isAdminAccount = adminEmails.includes(user.email!);
             
+            const firstName = (profile as any)?.given_name || user.name?.split(' ')[0] || 'Unknown';
+            const lastName = (profile as any)?.family_name || user.name?.split(' ').slice(1).join(' ') || 'User';
+            
             await prisma.userList.create({
               data: {
                 id: user.id,
                 email: user.email!,
-                firstName: (profile as any)?.given_name || user.name?.split(' ')[0] || 'Unknown',
-                lastName: (profile as any)?.family_name || user.name?.split(' ').slice(1).join(' ') || 'User',
+                firstName: firstName,
+                lastName: lastName,
+                genConName: `${firstName} ${lastName}`, // Set genConName to full name initially
                 googleId: user.id,
                 provider: "google",
                 image: user.image,
@@ -105,6 +110,7 @@ export const authOptions: NextAuthOptions = {
           id: dbUser.id,
           firstName: dbUser.firstName,
           lastName: dbUser.lastName,
+          genConName: dbUser.genConName,
           isAdmin: dbUser.isAdmin,
           provider: dbUser.provider,
           image: dbUser.image,

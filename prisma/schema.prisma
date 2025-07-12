@@ -94,6 +94,7 @@ model UserList {
   firstName String
   lastName  String
   email     String   @unique
+  genConName String  // GenCon display name
   isAdmin   Boolean  @default(false)
   
   // OAuth fields

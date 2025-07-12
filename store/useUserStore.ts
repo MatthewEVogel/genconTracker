@@ -6,6 +6,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  genConName: string;
   isAdmin: boolean;
   googleId?: string;
   provider: string;

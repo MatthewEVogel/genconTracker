@@ -12,6 +12,7 @@ export default function Settings() {
     firstName: '',
     lastName: '',
     email: '',
+    genConName: '',
     emailNotifications: false
   });
   const [loading, setLoading] = useState(false);
@@ -34,6 +35,7 @@ export default function Settings() {
       firstName: userData.firstName || '',
       lastName: userData.lastName || '',
       email: userData.email || '',
+      genConName: userData.genConName || '',
       emailNotifications: userData.emailNotifications || false
     });
   }, [user, session, router]);
@@ -187,6 +189,23 @@ export default function Settings() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="genConName" className="block text-sm font-medium text-gray-700">
+                  GenCon Name
+                </label>
+                <input
+                  type="text"
+                  id="genConName"
+                  name="genConName"
+                  value={formData.genConName}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  This is the name that will appear on your GenCon schedule and tickets
+                </p>
+              </div>
 
               {/* Notification Settings */}
               <div className="pt-4 border-t border-gray-200">

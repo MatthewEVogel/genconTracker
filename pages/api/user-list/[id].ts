@@ -27,7 +27,7 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-      const { firstName, lastName, email, isAdmin, googleId, provider, image, emailNotifications, pushNotifications } = req.body;
+      const { firstName, lastName, email, genConName, isAdmin, googleId, provider, image, emailNotifications, pushNotifications } = req.body;
 
       // Validate required fields
       if (firstName !== undefined && (!firstName || typeof firstName !== 'string' || !firstName.trim())) {
@@ -38,6 +38,9 @@ export default async function handler(
       }
       if (email !== undefined && (!email || typeof email !== 'string' || !email.trim())) {
         return res.status(400).json({ error: 'Email is required' });
+      }
+      if (genConName !== undefined && (!genConName || typeof genConName !== 'string' || !genConName.trim())) {
+        return res.status(400).json({ error: 'GenCon name is required' });
       }
 
       // Validate email format if provided
@@ -53,6 +56,7 @@ export default async function handler(
         firstName,
         lastName,
         email,
+        genConName,
         isAdmin,
         googleId,
         provider,

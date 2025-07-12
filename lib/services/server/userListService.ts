@@ -5,6 +5,7 @@ export interface UserListData {
   firstName: string;
   lastName: string;
   email: string;
+  genConName: string;
   isAdmin: boolean;
   googleId?: string | null;
   provider: string;
@@ -18,6 +19,7 @@ export interface CreateUserListData {
   firstName: string;
   lastName: string;
   email: string;
+  genConName: string;
   isAdmin?: boolean;
   googleId?: string;
   provider?: string;
@@ -30,6 +32,7 @@ export interface UpdateUserListData {
   firstName?: string;
   lastName?: string;
   email?: string;
+  genConName?: string;
   isAdmin?: boolean;
   googleId?: string;
   provider?: string;
@@ -102,6 +105,7 @@ export class UserListService {
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         email: data.email.trim().toLowerCase(),
+        genConName: data.genConName.trim(),
         isAdmin: data.isAdmin || false,
         googleId: data.googleId || null,
         provider: data.provider || 'manual',
@@ -121,6 +125,7 @@ export class UserListService {
     if (data.firstName !== undefined) updateData.firstName = data.firstName.trim();
     if (data.lastName !== undefined) updateData.lastName = data.lastName.trim();
     if (data.email !== undefined) updateData.email = data.email.trim().toLowerCase();
+    if (data.genConName !== undefined) updateData.genConName = data.genConName.trim();
     if (data.isAdmin !== undefined) updateData.isAdmin = data.isAdmin;
     if (data.googleId !== undefined) updateData.googleId = data.googleId;
     if (data.provider !== undefined) updateData.provider = data.provider;
