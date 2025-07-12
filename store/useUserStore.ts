@@ -8,6 +8,7 @@ interface User {
   email: string;
   genConName: string;
   isAdmin: boolean;
+  approved: boolean;
   googleId?: string;
   provider: string;
   image?: string;

@@ -16,6 +16,7 @@ declare module "next-auth" {
       isAdmin?: boolean
       provider?: string
       emailNotifications?: boolean
+      approved?: boolean
     }
   }
 }
@@ -112,12 +113,6 @@ export const authOptions: NextAuthOptions = {
       });
 
       if (dbUser) {
-        // Check if user is approved (only for manual accounts)
-        if (dbUser.provider === "manual" && !dbUser.approved) {
-          // Return null to end the session for non-approved manual accounts
-          return null as any;
-        }
-
         session.user = {
           ...session.user,
           id: dbUser.id,
@@ -127,7 +122,8 @@ export const authOptions: NextAuthOptions = {
           isAdmin: dbUser.isAdmin,
           provider: dbUser.provider,
           image: dbUser.image,
-          emailNotifications: dbUser.emailNotifications
+          emailNotifications: dbUser.emailNotifications,
+          approved: dbUser.approved
         };
       }
 
