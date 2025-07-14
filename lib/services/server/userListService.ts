@@ -20,7 +20,7 @@ export interface CreateUserListData {
   firstName: string;
   lastName: string;
   email: string;
-  genConName: string;
+  genConName?: string;
   isAdmin?: boolean;
   approved?: boolean;
   googleId?: string;
@@ -108,7 +108,7 @@ export class UserListService {
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         email: data.email.trim().toLowerCase(),
-        genConName: data.genConName.trim(),
+        genConName: data.genConName ? data.genConName.trim() : `${data.firstName.trim()} ${data.lastName.trim()}`,
         isAdmin: data.isAdmin || false,
         approved: data.approved || false,
         googleId: data.googleId || null,
