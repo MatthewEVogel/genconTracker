@@ -200,10 +200,11 @@ export function calculateTicketAssignments(
       if (usersWithCapacity.length === 0) break;
       
       // STOPPING CONDITION 1: Maximum coverage achieved 
-      // (every event assigned to every available user who doesn't already have it)
+      // (every event assigned to every available user who doesn't already have it AND is interested in it)
       const maxCoverageAchieved = unprocessedEventsInTier.every(event => {
+        const interestedUserIds = event.interestedUsers.map(u => u.userId);
         const usersWhoCanTakeThisEvent = usersWithCapacity.filter(userId => 
-          !userEventAssignments.get(userId)!.has(event.eventId)
+          interestedUserIds.includes(userId) && !userEventAssignments.get(userId)!.has(event.eventId)
         );
         return usersWhoCanTakeThisEvent.length === 0;
       });
@@ -229,10 +230,15 @@ export function calculateTicketAssignments(
       if (!eventWithFewestBuyers) break;
       
       // Find user with fewest current events who can take more AND doesn't already have this event
+      // AND is actually interested in this event (appears in the filtered input)
       let userWithFewestEvents: string | null = null;
       let minEventCount = Infinity;
       
-      for (const userId of usersWithCapacity) {
+      // Only consider users who are actually interested in this event
+      const interestedUserIds = eventWithFewestBuyers.interestedUsers.map(u => u.userId);
+      const eligibleUsers = usersWithCapacity.filter(userId => interestedUserIds.includes(userId));
+      
+      for (const userId of eligibleUsers) {
         // Skip users who already have this event assigned
         if (userEventAssignments.get(userId)!.has(eventWithFewestBuyers.eventId)) {
           continue;
