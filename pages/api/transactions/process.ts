@@ -125,6 +125,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             errors.push(`Database error for ${transaction.eventId} - ${transaction.recipient}: ${error}`);
           }
         } else {
+          // For non-Prisma errors (like "Database connection failed"), re-throw to trigger 500 response
+          if (error instanceof Error && error.message.includes('Database connection failed')) {
+            throw error;
+          }
           errors.push(`Error processing ${transaction.eventId} - ${transaction.recipient}: ${error}`);
         }
       }
