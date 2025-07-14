@@ -7,14 +7,18 @@ import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
 import { ScheduleService, ScheduleUser, ScheduleEvent } from "@/lib/services/client/scheduleService";
 import { RegistrationTimerService } from "@/lib/services/client/registrationTimerService";
+import { EventService } from "@/lib/services/client/eventService";
+import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 
 const DAYS = ['Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function SchedulePage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
+  const { customAlert, AlertComponent } = useCustomAlerts();
   const [scheduleData, setScheduleData] = useState<ScheduleUser[]>([]);
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
+  const [userTrackedEventIds, setUserTrackedEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('Thursday');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -51,6 +55,7 @@ export default function SchedulePage() {
 
     fetchScheduleData();
     fetchUserEvents();
+    fetchTrackedEvents();
     fetchRegistrationTimer();
   }, [user, router]);
 
@@ -73,6 +78,17 @@ export default function SchedulePage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTrackedEvents = async () => {
+    if (!user) return;
+    
+    try {
+      const trackedEvents = await EventService.getTrackedEvents();
+      setUserTrackedEventIds(trackedEvents.map(event => event.id));
+    } catch (err) {
+      console.error('Error fetching tracked events:', err);
     }
   };
 
@@ -123,6 +139,30 @@ export default function SchedulePage() {
     // Refresh data
     await fetchScheduleData();
     await fetchUserEvents();
+  };
+
+  const handleTrackEvent = async (eventId: string) => {
+    if (!user) return;
+
+    try {
+      await EventService.trackEvent(eventId);
+      setUserTrackedEventIds(prev => [...prev, eventId]);
+      await customAlert('Event tracking enabled!', 'Success');
+    } catch (err) {
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
+    }
+  };
+
+  const handleUntrackEvent = async (eventId: string) => {
+    if (!user) return;
+
+    try {
+      await EventService.untrackEvent(eventId);
+      setUserTrackedEventIds(prev => prev.filter(id => id !== eventId));
+      await customAlert('Event tracking disabled!', 'Success');
+    } catch (err) {
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
+    }
   };
 
   const fetchRegistrationTimer = async () => {
@@ -274,6 +314,9 @@ export default function SchedulePage() {
             onAddEvent={handleAddEvent}
             onRemoveEvent={handleRemoveEvent}
             userEventIds={userEventIds}
+            onTrackEvent={handleTrackEvent}
+            onUntrackEvent={handleUntrackEvent}
+            userTrackedEventIds={userTrackedEventIds}
           />
         )}
       </main>
@@ -391,6 +434,9 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
+      
+      {/* Custom Alert Component */}
+      <AlertComponent />
     </div>
   );
 }

@@ -9,6 +9,9 @@ interface TimelineProps {
   onAddEvent: (eventId: string) => void;
   onRemoveEvent: (eventId: string) => void;
   userEventIds: string[];
+  onTrackEvent?: (eventId: string) => void;
+  onUntrackEvent?: (eventId: string) => void;
+  userTrackedEventIds?: string[];
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 12 AM to 11 PM (24-hour view)
@@ -123,7 +126,10 @@ export default function Timeline({
   selectedDay, 
   onAddEvent, 
   onRemoveEvent,
-  userEventIds 
+  userEventIds,
+  onTrackEvent,
+  onUntrackEvent,
+  userTrackedEventIds = []
 }: TimelineProps) {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
 
@@ -333,35 +339,70 @@ export default function Timeline({
               )}
             </div>
 
-            <div className="flex space-x-3">
-              {userEventIds.includes(selectedEvent.id) ? (
+            <div className="space-y-3">
+              <div className="flex space-x-3">
+                {userEventIds.includes(selectedEvent.id) ? (
+                  <button
+                    onClick={() => {
+                      onRemoveEvent(selectedEvent.id);
+                      setSelectedEvent(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                  >
+                    Remove Event
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onAddEvent(selectedEvent.id);
+                      setSelectedEvent(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                  >
+                    Add Event
+                  </button>
+                )}
+                
                 <button
-                  onClick={() => {
-                    onRemoveEvent(selectedEvent.id);
-                    setSelectedEvent(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                  onClick={() => setSelectedEvent(null)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
                 >
-                  Remove Event
+                  Close
                 </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    onAddEvent(selectedEvent.id);
-                    setSelectedEvent(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                >
-                  Add Event
-                </button>
-              )}
+              </div>
               
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-              >
-                Close
-              </button>
+              {/* Tracking Button */}
+              {onTrackEvent && onUntrackEvent && (
+                <div className="flex space-x-3">
+                  {userTrackedEventIds.includes(selectedEvent.id) ? (
+                    <button
+                      onClick={() => {
+                        onUntrackEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Stop Tracking Changes
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onTrackEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                      Track Changes
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

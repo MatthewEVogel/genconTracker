@@ -52,6 +52,7 @@ model EventsList {
   priority           Int             @default(1)
   isCanceled         Boolean         @default(false)
   desiredEvents      DesiredEvents[]
+  trackedBy          UserList[]      @relation("TrackedEvents")
 }
 
 model PurchasedEvents {
@@ -90,6 +91,7 @@ model UserList {
   pushNotifications  Boolean         @default(false)
   createdAt          DateTime        @default(now())
   desiredEvents      DesiredEvents[]
+  trackedEvents      EventsList[]    @relation("TrackedEvents")
 }
 
 model pending_users {

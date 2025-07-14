@@ -115,7 +115,8 @@ async function performDifferentialUpdate(
       isCanceled: true,
       _count: {
         select: {
-          desiredEvents: true
+          desiredEvents: true,
+          trackedBy: true
         }
       }
     }
@@ -172,6 +173,22 @@ async function performDifferentialUpdate(
         );
 
         if (needsUpdate) {
+          // Detect what changed for notifications
+          const changes = [];
+          if (existingEvent.title !== newEvent.title) changes.push('title');
+          if (existingEvent.shortDescription !== (newEvent.shortDescription || null)) changes.push('description');
+          if (existingEvent.eventType !== (newEvent.eventType || null)) changes.push('type');
+          if (existingEvent.gameSystem !== (newEvent.gameSystem || null)) changes.push('game system');
+          if (existingEvent.startDateTime !== (newEvent.startDateTime || null)) changes.push('start time');
+          if (existingEvent.endDateTime !== (newEvent.endDateTime || null)) changes.push('end time');
+          if (existingEvent.ageRequired !== (newEvent.ageRequired || null)) changes.push('age requirement');
+          if (existingEvent.experienceRequired !== (newEvent.experienceRequired || null)) changes.push('experience requirement');
+          if (existingEvent.materialsRequired !== (newEvent.materialsRequired || null)) changes.push('materials required');
+          if (existingEvent.cost !== (newEvent.cost || null)) changes.push('cost');
+          if (existingEvent.location !== (newEvent.location || null)) changes.push('location');
+          if (existingEvent.ticketsAvailable !== (newEvent.ticketsAvailable || null)) changes.push('ticket availability');
+          if (existingEvent.isCanceled) changes.push('uncanceled');
+
           await prisma.eventsList.update({
             where: { id: newEvent.id },
             data: {
@@ -190,6 +207,10 @@ async function performDifferentialUpdate(
               isCanceled: false // Un-cancel if it was canceled
             }
           });
+          
+          // Send notifications to users tracking this event
+          await notifyTrackingUsers(newEvent.id, newEvent.title, changes);
+          
           stats.updatedEvents++;
           console.log(`Updated event: ${newEvent.id} - ${newEvent.title}`);
         }
@@ -205,18 +226,22 @@ async function performDifferentialUpdate(
   for (const existingEvent of existingEvents) {
     if (!newEventIds.has(existingEvent.id) && !existingEvent.isCanceled) {
       try {
-        if (existingEvent._count.desiredEvents > 0) {
-          // Event has users - mark as canceled
+        if (existingEvent._count.desiredEvents > 0 || existingEvent._count.trackedBy > 0) {
+          // Event has users or is being tracked - mark as canceled
           await prisma.eventsList.update({
             where: { id: existingEvent.id },
             data: {
               isCanceled: true
             }
           });
+          
+          // Send notifications to users tracking this event
+          await notifyTrackingUsers(existingEvent.id, existingEvent.title, ['canceled']);
+          
           stats.canceledEvents++;
           console.log(`Marked event as canceled: ${existingEvent.id} - ${existingEvent.title}`);
         } else {
-          // Event has no users - safe to delete
+          // Event has no users and isn't being tracked - safe to delete
           await prisma.eventsList.delete({
             where: { id: existingEvent.id }
           });
@@ -231,12 +256,15 @@ async function performDifferentialUpdate(
     }
   }
 
-  // Clean up canceled events that no longer have users
+  // Clean up canceled events that no longer have users or trackers
   try {
     const canceledEventsWithoutUsers = await prisma.eventsList.findMany({
       where: {
         isCanceled: true,
         desiredEvents: {
+          none: {}
+        },
+        trackedBy: {
           none: {}
         }
       }
@@ -247,11 +275,88 @@ async function performDifferentialUpdate(
         where: { id: event.id }
       });
       stats.deletedEvents++;
-      console.log(`Cleaned up canceled event with no users: ${event.id} - ${event.title}`);
+      console.log(`Cleaned up canceled event with no users or trackers: ${event.id} - ${event.title}`);
     }
   } catch (error) {
     const errorMsg = `Error cleaning up canceled events: ${error instanceof Error ? error.message : 'Unknown error'}`;
     stats.errors.push(errorMsg);
     console.error(errorMsg);
   }
+}
+
+async function notifyTrackingUsers(eventId: string, eventTitle: string, changes: string[]): Promise<void> {
+  try {
+    // Get all users tracking this event
+    const event = await prisma.eventsList.findUnique({
+      where: { id: eventId },
+      include: {
+        trackedBy: {
+          where: {
+            OR: [
+              { emailNotifications: true },
+              { pushNotifications: true }
+            ]
+          }
+        }
+      }
+    });
+
+    if (!event || event.trackedBy.length === 0) {
+      console.log(`No users tracking event ${eventId} with notifications enabled`);
+      return;
+    }
+
+    console.log(`Sending notifications to ${event.trackedBy.length} users tracking event ${eventId}`);
+
+    // Format the changes message
+    const changeMessage = changes.length === 1 
+      ? `${changes[0]} changed`
+      : `${changes.slice(0, -1).join(', ')} and ${changes.slice(-1)} changed`;
+
+    // Send notifications to each user
+    for (const user of event.trackedBy) {
+      try {
+        if (user.emailNotifications) {
+          await sendEmailNotification(user.email, eventTitle, changeMessage);
+        }
+        
+        if (user.pushNotifications) {
+          await sendSMSNotification(user.email, eventTitle, changeMessage);
+        }
+      } catch (error) {
+        console.error(`Failed to send notification to ${user.email}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error(`Error notifying tracking users for event ${eventId}:`, error);
+  }
+}
+
+async function sendEmailNotification(email: string, eventTitle: string, changes: string): Promise<void> {
+  // For now, just log the notification
+  // In a real implementation, this would integrate with SendGrid or similar
+  console.log(`[EMAIL] To: ${email}, Subject: Event Update - ${eventTitle}, Changes: ${changes}`);
+  
+  // TODO: Implement actual email sending with SendGrid
+  // const msg = {
+  //   to: email,
+  //   from: 'noreply@gencontracker.com',
+  //   subject: `Event Update - ${eventTitle}`,
+  //   text: `The event "${eventTitle}" has been updated. Changes: ${changes}.`,
+  //   html: `<p>The event "<strong>${eventTitle}</strong>" has been updated.</p><p><strong>Changes:</strong> ${changes}</p>`
+  // };
+  // await sgMail.send(msg);
+}
+
+async function sendSMSNotification(email: string, eventTitle: string, changes: string): Promise<void> {
+  // For now, just log the notification
+  // In a real implementation, this would integrate with Twilio or similar
+  console.log(`[SMS] To: ${email}, Message: Event "${eventTitle}" updated: ${changes}`);
+  
+  // TODO: Implement actual SMS sending with Twilio
+  // const message = await twilio.messages.create({
+  //   body: `Event "${eventTitle}" updated: ${changes}`,
+  //   from: '+1234567890',
+  //   to: userPhoneNumber
+  // });
 }

@@ -90,6 +90,8 @@ export const testDatabase = {
     try {
       // Clean up in reverse dependency order
       await testPrisma.desiredEvents.deleteMany({});
+      // Note: No need to clean up tracking relationships explicitly 
+      // as they're handled by implicit many-to-many table
       await testPrisma.eventsList.deleteMany({});
       await testPrisma.userList.deleteMany({});
       return true;

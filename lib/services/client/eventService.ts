@@ -15,6 +15,7 @@ export interface Event {
   ticketsAvailable?: number;
   priority?: number;
   isCanceled?: boolean;
+  isTracked?: boolean;
 }
 
 export interface EventFilters {
@@ -128,5 +129,49 @@ export class EventService {
     };
 
     return await this.getEvents(filters);
+  }
+
+  // Track an event
+  static async trackEvent(eventId: string): Promise<void> {
+    const response = await fetch(`/api/events/${eventId}/track`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to track event');
+    }
+  }
+
+  // Untrack an event
+  static async untrackEvent(eventId: string): Promise<void> {
+    const response = await fetch(`/api/events/${eventId}/track`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to untrack event');
+    }
+  }
+
+  // Get user's tracked events
+  static async getTrackedEvents(): Promise<Event[]> {
+    const response = await fetch('/api/user-tracked-events');
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch tracked events');
+    }
+    
+    return data.trackedEvents;
   }
 }

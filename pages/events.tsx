@@ -29,6 +29,7 @@ export default function EventsPage() {
   const { customAlert, AlertComponent } = useCustomAlerts();
   const [events, setEvents] = useState<Event[]>([]);
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
+  const [userTrackedEventIds, setUserTrackedEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('All Days');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -98,6 +99,10 @@ export default function EventsPage() {
       
       setEvents(data.events);
       setPagination(data.pagination);
+      
+      // Update tracked event IDs from the events data
+      const trackedIds = data.events.filter(event => event.isTracked).map(event => event.id);
+      setUserTrackedEventIds(trackedIds);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -268,6 +273,42 @@ export default function EventsPage() {
       
       // Show success message
       await customAlert('Event removed from your schedule!', 'Success');
+    } catch (err) {
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
+    }
+  };
+
+  const handleTrackEvent = async (eventId: string) => {
+    if (!user) return;
+
+    try {
+      await EventService.trackEvent(eventId);
+      
+      // Update local state
+      setUserTrackedEventIds(prev => [...prev, eventId]);
+      setEvents(prev => prev.map(event => 
+        event.id === eventId ? { ...event, isTracked: true } : event
+      ));
+      
+      await customAlert('Event tracking enabled!', 'Success');
+    } catch (err) {
+      await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
+    }
+  };
+
+  const handleUntrackEvent = async (eventId: string) => {
+    if (!user) return;
+
+    try {
+      await EventService.untrackEvent(eventId);
+      
+      // Update local state
+      setUserTrackedEventIds(prev => prev.filter(id => id !== eventId));
+      setEvents(prev => prev.map(event => 
+        event.id === eventId ? { ...event, isTracked: false } : event
+      ));
+      
+      await customAlert('Event tracking disabled!', 'Success');
     } catch (err) {
       await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
     }
@@ -523,6 +564,7 @@ export default function EventsPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {events.map((event) => {
                 const isUserEvent = userEventIds.includes(event.id);
+                const isTracked = event.isTracked || userTrackedEventIds.includes(event.id);
                 
                 return (
                   <EventTooltip key={event.id} event={event} isUserEvent={isUserEvent}>
@@ -638,8 +680,8 @@ export default function EventsPage() {
                       </div>
                     )}
 
-                    {/* Add/Remove Event Button */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    {/* Add/Remove Event Button and Tracking Button */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                       {isUserEvent ? (
                         <button
                           onClick={() => handleRemoveEvent(event.id)}
@@ -653,6 +695,29 @@ export default function EventsPage() {
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
                         >
                           Add to Schedule
+                        </button>
+                      )}
+                      
+                      {/* Tracking Button */}
+                      {isTracked ? (
+                        <button
+                          onClick={() => handleUntrackEvent(event.id)}
+                          className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Stop Tracking Changes
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleTrackEvent(event.id)}
+                          className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                          Track Changes
                         </button>
                       )}
                     </div>

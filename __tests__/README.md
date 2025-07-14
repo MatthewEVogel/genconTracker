@@ -146,10 +146,100 @@ The tests use realistic mock data including:
 - Conflicting events with overlapping time ranges
 - Various capacity scenarios
 
+## Event Tracking Tests
+
+### New Test Coverage Added
+
+#### `__tests__/api/eventTracking.test.ts`
+Tests for the event tracking API endpoints:
+- **POST /api/events/[eventId]/track** - Track an event
+- **DELETE /api/events/[eventId]/track** - Untrack an event  
+- **GET /api/user-tracked-events** - Get user's tracked events
+
+**Test Coverage:**
+- ✅ Successful tracking/untracking operations
+- ✅ Authentication validation (401 errors)
+- ✅ Event existence validation (404 errors)
+- ✅ Duplicate tracking prevention (400 errors)
+- ✅ Method validation (405 errors)
+- ✅ Proper API response formats
+
+#### `__tests__/api/eventsListTracking.test.ts`
+Tests for the events list API with tracking information:
+- **GET /api/events-list** - Event list with `isTracked` field
+
+**Test Coverage:**
+- ✅ Tracking information included for authenticated users
+- ✅ No tracking information for unauthenticated users
+- ✅ Handling users with no tracked events
+- ✅ Database error handling
+- ✅ Query parameter pass-through
+- ✅ Method validation
+
+#### `__tests__/services/client/eventService.test.ts`
+Tests for the client-side EventService tracking methods:
+- `EventService.trackEvent(eventId)`
+- `EventService.untrackEvent(eventId)`
+- `EventService.getTrackedEvents()`
+
+**Test Coverage:**
+- ✅ Successful API calls with proper request formatting
+- ✅ Error handling for API failures
+- ✅ Network error handling
+- ✅ Default error messages when none provided
+- ✅ Return value validation
+
+#### `__tests__/utils/eventUpdateService.test.ts`
+Tests for the event update service with change detection and notifications:
+- Event change detection logic
+- Notification system for tracked events
+- Event cancellation and deletion logic with tracking considerations
+
+**Test Coverage:**
+- ✅ Change detection for all event fields (title, time, location, cost, etc.)
+- ✅ Notification sending to users tracking changed events
+- ✅ Event cancellation with tracking user notifications
+- ✅ Event deletion vs cancellation based on tracking users
+- ✅ Preservation of events with tracking users
+- ✅ New event creation without notifications
+- ✅ Handling events with no changes
+- ✅ Error handling for fetch, database, and notification failures
+
+#### `__tests__/integration/eventTracking.test.ts`
+End-to-end integration tests using real database operations:
+- Complete event tracking workflows
+- Multi-user tracking scenarios
+- Data integrity validation
+
+**Test Coverage:**
+- ✅ User can track and untrack events
+- ✅ Multiple users can track the same event
+- ✅ Single user can track multiple events
+- ✅ Tracking relationships preserved during event updates
+- ✅ Event cancellation with tracking users
+- ✅ User filtering by notification preferences
+- ✅ Cascade delete behavior for users and events
+- ✅ Duplicate tracking prevention
+- ✅ Database constraint validation
+
+### Running Event Tracking Tests
+
+```bash
+# Run all event tracking tests
+npm test -- __tests__/api/eventTracking.test.ts __tests__/services/client/eventService.test.ts __tests__/api/eventsListTracking.test.ts __tests__/utils/eventUpdateService.test.ts __tests__/integration/eventTracking.test.ts
+
+# Run individual test files
+npm test -- __tests__/api/eventTracking.test.ts
+npm test -- __tests__/services/client/eventService.test.ts
+npm test -- __tests__/api/eventsListTracking.test.ts
+npm test -- __tests__/utils/eventUpdateService.test.ts
+npm test -- __tests__/integration/eventTracking.test.ts
+```
+
 ## Future Test Additions
 
 Consider adding tests for:
-- Integration tests with real database
 - Performance tests for large datasets
-- API endpoint tests
 - Frontend component tests for event management UI
+- End-to-end tests for complete user workflows
+- Load testing for event update notifications
