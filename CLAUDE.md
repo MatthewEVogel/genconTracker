@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Commands
 - `npm run dev` - Start development server
-- `npm run build` - Build production application
+- `npm run build` - Build production application (includes typecheck)
 - `npm run start` - Start production server
 - `npm run lint` - Run Next.js linting
+- `npm run typecheck` - Run TypeScript type checking
 - `npm run test` - Run Jest tests
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Run tests with coverage
+- `npm run test:ci` - Run tests for CI (no watch mode)
 - `npm run seed` - Seed database with test data using Prisma
 
 ### Database Commands
@@ -19,6 +21,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `prisma migrate deploy` - Deploy migrations to production (runs automatically in postbuild)
 - `prisma generate` - Generate Prisma client
 - `prisma studio` - Open Prisma Studio for database inspection
+- `npm run db:migrate` - Deploy migrations (alias for prisma migrate deploy)
+- `npm run db:push` - Push schema changes to database without migration
 
 ## Architecture Overview
 
@@ -79,7 +83,8 @@ The application uses a clean service layer pattern:
 ## Key Features
 
 ### Event Management
-- Automatic event updates from GenCon's official data
+- **Automatic daily event updates** - Events update automatically at 2:00 AM via Vercel Cron Jobs
+- Manual event updates available for admins via admin panel
 - Event cancellation detection and user notification
 - Advanced filtering (day, time, type, search)
 - Pagination support for large event lists
@@ -107,13 +112,22 @@ The application uses a clean service layer pattern:
 - Test utilities in `__tests__/utils/`
 - Coverage reporting available
 - Focus on algorithm testing (ticket assignment, wishlist validation)
+- Uses Jest with jsdom environment for React component testing
+- Test database setup with SQLite for isolation
 
 ### Running Tests
 ```bash
 npm run test              # Run all tests
 npm run test:watch        # Watch mode
 npm run test:coverage     # With coverage
+npm run test:ci          # CI mode (no watch)
 ```
+
+### Test Configuration
+- Jest configuration uses Next.js preset for optimal integration
+- Path aliases (`@/`) work in tests matching project structure
+- Coverage collection from pages, components, and utils directories
+- Test files should follow pattern: `*.test.{js,ts,tsx}`
 
 ## Development Workflow
 
@@ -133,7 +147,34 @@ npm run test:coverage     # With coverage
 - Deploys to Vercel automatically
 - Database migrations run via postbuild script
 - Environment variables must be configured in Vercel dashboard
+- TypeScript type checking runs during build (build fails on type errors)
+- **Automatic event updates** scheduled via Vercel Cron Jobs (daily at 2:00 AM)
 - See `VERCEL_DEPLOYMENT_GUIDE.md` for detailed setup
+
+## Automated Event Updates
+
+### Daily Automatic Updates
+- **Schedule**: Events update automatically every day at 2:00 AM UTC
+- **Implementation**: Uses Vercel Cron Jobs with `vercel.json` configuration
+- **Endpoint**: `/api/cron/update-events` (protected with `CRON_SECRET`)
+- **Process**: Downloads GenCon's official events.zip, extracts XLSX, performs differential database update
+
+### Manual Admin Updates
+- **Admin Panel**: Admins can manually trigger updates via `/api/admin/update-events`
+- **Test Endpoint**: Admins can test cron functionality via `/api/admin/test-cron`
+- **Authentication**: Requires admin privileges and proper session
+
+### Configuration
+- **Environment Variable**: `CRON_SECRET` must be set for cron job authentication
+- **Vercel Setup**: Cron jobs are configured in `vercel.json` with schedule `"0 2 * * *"`
+- **Error Handling**: Comprehensive logging and error reporting for both manual and automated updates
+
+### Update Process
+1. Downloads events.zip from GenCon's official source
+2. Extracts and parses XLSX file containing event data
+3. Performs differential update: creates new events, updates existing ones
+4. Marks missing events as canceled (if users are registered) or deletes them
+5. Cleans up canceled events with no associated users
 
 ## Important Implementation Details
 
