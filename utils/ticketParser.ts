@@ -7,9 +7,9 @@ export interface ParsedTicket {
 export function parseGenConTickets(text: string): ParsedTicket[] {
   const tickets: ParsedTicket[] = [];
   
-  // Regex to match the ticket format: 3 letters, 2 numbers, 2 letters, 6 numbers, space "-" space
+  // Regex to match the ticket format: optional leading whitespace, 3 letters, 2 numbers, 2 letters, 6 numbers, optional whitespace "-" optional whitespace
   // Then capture everything up to the first tab (event name) and everything up to the second tab (recipient)
-  const ticketRegex = /^([A-Z]{3}\d{2}[A-Z]{2}\d{6}) - (.+?)\t(.+?)(?:\t|$)/gm;
+  const ticketRegex = /^\s*([A-Z]{3}\d{2}[A-Z]{2}\d{6})\s*-\s*(.+?)\t(.+?)(?:\t|$)/gm;
   
   let match;
   while ((match = ticketRegex.exec(text)) !== null) {

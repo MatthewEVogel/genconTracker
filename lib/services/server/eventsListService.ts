@@ -58,6 +58,11 @@ export class EventsListService {
       const start = new Date(startDateTime);
       const end = new Date(endDateTime);
       
+      // Check if dates are valid
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return null;
+      }
+      
       // Calculate difference in milliseconds
       let diffMs = end.getTime() - start.getTime();
       
@@ -70,6 +75,11 @@ export class EventsListService {
       // Convert to hours and minutes
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Check if calculated values are valid
+      if (isNaN(hours) || isNaN(minutes)) {
+        return null;
+      }
       
       // Format as "Xh Ym" or just "Xh" if no minutes
       if (minutes === 0) {

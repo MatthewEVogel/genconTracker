@@ -29,6 +29,7 @@
     "autoprefixer": "^10.4.21",
     "jest": "^30.0.3",
     "jest-environment-jsdom": "^30.0.2",
+    "node-mocks-http": "^1.17.2",
     "postcss": "^8.5.4",
     "prisma": "^6.8.2",
     "supertest": "^7.1.1",
@@ -47,5 +48,4 @@
     "xlsx": "^0.18.5",
     "zustand": "^5.0.5"
   }
-  
 }

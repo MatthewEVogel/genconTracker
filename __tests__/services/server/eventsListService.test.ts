@@ -1,19 +1,20 @@
-import { EventsListService } from '@/lib/services/server/eventsListService';
-
-// Mock Prisma
-const mockFindMany = jest.fn();
-const mockCount = jest.fn();
-const mockFindUnique = jest.fn();
-
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     eventsList: {
-      findMany: mockFindMany,
-      count: mockCount,
-      findUnique: mockFindUnique,
+      findMany: jest.fn(),
+      count: jest.fn(),
+      findUnique: jest.fn(),
     }
   }
 }));
+
+import { EventsListService } from '@/lib/services/server/eventsListService';
+import { prisma } from '@/lib/prisma';
+
+// Get the mocked functions for use in tests
+const mockFindMany = prisma.eventsList.findMany as jest.MockedFunction<typeof prisma.eventsList.findMany>;
+const mockCount = prisma.eventsList.count as jest.MockedFunction<typeof prisma.eventsList.count>;
+const mockFindUnique = prisma.eventsList.findUnique as jest.MockedFunction<typeof prisma.eventsList.findUnique>;
 
 describe('EventsListService Tests', () => {
 

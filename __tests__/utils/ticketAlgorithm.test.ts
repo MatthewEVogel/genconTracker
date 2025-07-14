@@ -297,4 +297,204 @@ describe('Ticket Algorithm Tests', () => {
       }
     });
   });
+
+  describe('Purchased Events Exclusion Integration', () => {
+    test('should work correctly when events are pre-filtered to exclude purchased', () => {
+      const users = createTestUsers(3);
+      
+      // Simulate scenario where some events are already purchased and filtered out
+      const allDesiredEvents = createTestEvents(20, 3, users);
+      
+      // Simulate that events 1, 5, and 10 are already purchased by user1
+      // So we filter those out before passing to the algorithm
+      const filteredEvents = allDesiredEvents.filter(event => {
+        if (event.userId === 'user1' && ['event1', 'event5', 'event10'].includes(event.eventId)) {
+          return false; // Exclude already purchased events
+        }
+        return true;
+      });
+      
+      const { assignments } = calculateTicketAssignments(filteredEvents, users);
+      
+      // User1 should not be assigned to buy events 1, 5, or 10
+      const user1Assignment = assignments.find(a => a.userId === 'user1');
+      expect(user1Assignment).toBeDefined();
+      
+      const user1EventIds = user1Assignment!.events.map(e => e.eventId);
+      expect(user1EventIds).not.toContain('event1');
+      expect(user1EventIds).not.toContain('event5');
+      expect(user1EventIds).not.toContain('event10');
+      
+      // But user2 and user3 should still be assigned to buy those events
+      const user2Assignment = assignments.find(a => a.userId === 'user2');
+      const user3Assignment = assignments.find(a => a.userId === 'user3');
+      
+      const allOtherUserEvents = [
+        ...user2Assignment!.events.map(e => e.eventId),
+        ...user3Assignment!.events.map(e => e.eventId)
+      ];
+      
+      // Events 1, 5, and 10 should still be covered by other users
+      expect(allOtherUserEvents).toContain('event1');
+      expect(allOtherUserEvents).toContain('event5');
+      expect(allOtherUserEvents).toContain('event10');
+    });
+
+    test('should handle scenario where all users have purchased some events', () => {
+      const users = createTestUsers(3);
+      const allEvents = createTestEvents(10, 3, users);
+      
+      // Simulate each user has purchased different events
+      const filteredEvents = allEvents.filter(event => {
+        // User1 purchased events 1-2, User2 purchased events 3-4, User3 purchased events 5-6
+        if (event.userId === 'user1' && ['event1', 'event2'].includes(event.eventId)) return false;
+        if (event.userId === 'user2' && ['event3', 'event4'].includes(event.eventId)) return false;
+        if (event.userId === 'user3' && ['event5', 'event6'].includes(event.eventId)) return false;
+        return true;
+      });
+      
+      const { assignments } = calculateTicketAssignments(filteredEvents, users);
+      
+      // Verify each user doesn't get assigned their already-purchased events
+      const user1Assignment = assignments.find(a => a.userId === 'user1');
+      const user1EventIds = user1Assignment!.events.map(e => e.eventId);
+      expect(user1EventIds).not.toContain('event1');
+      expect(user1EventIds).not.toContain('event2');
+      
+      const user2Assignment = assignments.find(a => a.userId === 'user2');
+      const user2EventIds = user2Assignment!.events.map(e => e.eventId);
+      expect(user2EventIds).not.toContain('event3');
+      expect(user2EventIds).not.toContain('event4');
+      
+      const user3Assignment = assignments.find(a => a.userId === 'user3');
+      const user3EventIds = user3Assignment!.events.map(e => e.eventId);
+      expect(user3EventIds).not.toContain('event5');
+      expect(user3EventIds).not.toContain('event6');
+      
+      // But all events should still have someone assigned to buy them
+      const allAssignedEvents = new Set();
+      assignments.forEach(assignment => {
+        assignment.events.forEach(event => {
+          allAssignedEvents.add(event.eventId);
+        });
+      });
+      
+      // All 10 events should still be covered
+      for (let i = 1; i <= 10; i++) {
+        expect(allAssignedEvents.has(`event${i}`)).toBe(true);
+      }
+    });
+
+    test('should maintain fair distribution when some users have more purchased events', () => {
+      const users = createTestUsers(3);
+      const allEvents = createTestEvents(30, 3, users);
+      
+      // User1 has purchased many events, User2 has purchased few, User3 has purchased none
+      const filteredEvents = allEvents.filter(event => {
+        // User1 purchased events 1-10 (many)
+        if (event.userId === 'user1' && parseInt(event.eventId.replace('event', '')) <= 10) return false;
+        // User2 purchased events 1-2 (few)
+        if (event.userId === 'user2' && ['event1', 'event2'].includes(event.eventId)) return false;
+        // User3 purchased nothing
+        return true;
+      });
+      
+      const { assignments } = calculateTicketAssignments(filteredEvents, users);
+      
+      // User1 should get fewer total assignments since they already own many
+      // User3 should get more assignments since they own none
+      const user1Assignment = assignments.find(a => a.userId === 'user1');
+      const user2Assignment = assignments.find(a => a.userId === 'user2');
+      const user3Assignment = assignments.find(a => a.userId === 'user3');
+      
+      expect(user1Assignment!.totalTickets).toBeLessThan(user3Assignment!.totalTickets);
+      
+      // The algorithm should distribute remaining assignments fairly
+      const totalAssignments = assignments.reduce((sum, a) => sum + a.totalTickets, 0);
+      expect(totalAssignments).toBeGreaterThan(0);
+      
+      console.log('Purchase Distribution Test Results:', {
+        user1Assignments: user1Assignment!.totalTickets,
+        user2Assignments: user2Assignment!.totalTickets,
+        user3Assignments: user3Assignment!.totalTickets,
+        totalAssignments
+      });
+    });
+
+    test('should handle edge case where user has purchased all desired events', () => {
+      const users = createTestUsers(2);
+      const allEvents = createTestEvents(5, 2, users);
+      
+      // User1 has purchased all their desired events
+      const filteredEvents = allEvents.filter(event => event.userId !== 'user1');
+      
+      const { assignments } = calculateTicketAssignments(filteredEvents, users);
+      
+      // User1 should have no assignments
+      const user1Assignment = assignments.find(a => a.userId === 'user1');
+      expect(user1Assignment!.totalTickets).toBe(0);
+      expect(user1Assignment!.events).toHaveLength(0);
+      
+      // User2 should be assigned to buy all events
+      const user2Assignment = assignments.find(a => a.userId === 'user2');
+      expect(user2Assignment!.totalTickets).toBe(5);
+      
+      // All events should still be covered
+      const analysis = analyzeAssignments(assignments);
+      expect(analysis.eventsWithNoBuyers).toBe(0);
+    });
+
+    test('should verify algorithm behavior with realistic purchased events scenario', () => {
+      const users = createTestUsers(5);
+      const allEvents = [
+        // High priority events that everyone wants
+        ...createTestEvents(10, 5, users).map(e => ({ ...e, eventPriority: 3 })),
+        // Medium priority events
+        ...createTestEvents(20, 4, users).map(e => ({ ...e, eventId: `med${e.eventId}`, eventPriority: 2 })),
+        // Low priority events
+        ...createTestEvents(30, 3, users).map(e => ({ ...e, eventId: `low${e.eventId}`, eventPriority: 1 }))
+      ];
+      
+      // Simulate realistic purchase pattern: some users bought high-priority events early
+      const filteredEvents = allEvents.filter(event => {
+        // User1 and User2 already bought some high priority events
+        if (['user1', 'user2'].includes(event.userId) && 
+            event.eventPriority === 3 && 
+            parseInt(event.eventId.replace('event', '')) <= 3) {
+          return false;
+        }
+        return true;
+      });
+      
+      const { assignments, errors } = calculateTicketAssignments(filteredEvents, users);
+      
+      // Should have no errors
+      expect(errors).toHaveLength(0);
+      
+      // All users should get reasonable assignments
+      assignments.forEach(assignment => {
+        expect(assignment.totalTickets).toBeGreaterThanOrEqual(0);
+        expect(assignment.totalTickets).toBeLessThanOrEqual(50);
+      });
+      
+      // High priority events should still be well covered
+      const analysis = analyzeAssignments(assignments);
+      expect(analysis.eventsWithNoBuyers).toBe(0);
+      
+      // Users who already purchased events should get different assignments
+      const user1Assignment = assignments.find(a => a.userId === 'user1');
+      const user3Assignment = assignments.find(a => a.userId === 'user3');
+      
+      // User3 (who didn't pre-purchase) might get more high-priority assignments
+      const user1HighPriorityCount = user1Assignment!.events.filter(e => e.priority === 3).length;
+      const user3HighPriorityCount = user3Assignment!.events.filter(e => e.priority === 3).length;
+      
+      console.log('Realistic Purchase Scenario Results:', {
+        user1HighPriority: user1HighPriorityCount,
+        user3HighPriority: user3HighPriorityCount,
+        totalEventsFiltered: allEvents.length - filteredEvents.length,
+        analysis
+      });
+    });
+  });
 });
