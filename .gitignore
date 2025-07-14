@@ -149,6 +149,7 @@ coverage/
 .nyc_output/
 .vercel
 .env*.local
+test.db
 
 exampletickets.txt
 events.tsv

@@ -1,13 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/test-client';
 
-// Create a test database instance
-const testPrisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL || 'file:./test.db'
-    }
-  }
-});
+// Create a test database instance with SQLite for testing
+const testPrisma = new PrismaClient();
 
 export const testDatabase = {
   // Initialize test database

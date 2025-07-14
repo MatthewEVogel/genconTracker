@@ -24,8 +24,11 @@ jest.mock('next/router', () => ({
   },
 }))
 
-// Mock environment variables
-process.env.DATABASE_URL = 'file:./test.db'
+// Mock environment variables for testing
+// Use in-memory SQLite with PostgreSQL-compatible URL format for tests
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
+process.env.POSTGRES_PRISMA_URL = 'postgresql://test:test@localhost:5432/test'
+process.env.NODE_ENV = 'test'
 
 // Global test utilities
 global.testUtils = {
