@@ -28,7 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: {
         id: true,
         firstName: true,
-        lastName: true
+        lastName: true,
+        genConName: true
       }
     });
 
@@ -36,6 +37,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`
     }));
+
+    // Get all purchased events that haven't been refunded
+    const purchasedEvents = await prisma.purchasedEvents.findMany({
+      include: {
+        refundedEvents: true
+      }
+    });
+
+    // Filter out refunded purchased events
+    const activePurchasedEvents = purchasedEvents.filter(
+      purchased => purchased.refundedEvents.length === 0
+    );
+
+    // Create a set of purchased event-recipient combinations to exclude from recommendations
+    const purchasedEventSet = new Set<string>();
+    activePurchasedEvents.forEach(purchased => {
+      // Try to match purchased event recipient to users by genConName
+      const matchingUser = allUsers.find(user => 
+        user.genConName && 
+        user.genConName.trim().toLowerCase() === purchased.recipient.trim().toLowerCase()
+      );
+      
+      if (matchingUser) {
+        // This user already has this event purchased
+        purchasedEventSet.add(`${matchingUser.id}-${purchased.eventId}`);
+      }
+    });
 
     // Get all desired events (user events) for the algorithm
     const desiredEvents = await prisma.desiredEvents.findMany({
@@ -58,15 +86,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // Format the data for the ticket algorithm
-    const userEventsData = desiredEvents.map(de => ({
-      userId: de.user.id,
-      userName: `${de.user.firstName} ${de.user.lastName}`,
-      eventId: de.eventsList.id,
-      eventTitle: de.eventsList.title,
-      cost: de.eventsList.cost?.toString() || '0',
-      eventPriority: de.eventsList.priority || 1
-    }));
+    // Filter out desired events that are already purchased and format for the algorithm
+    const userEventsData = desiredEvents
+      .filter(de => {
+        // Exclude if this user-event combination is already purchased
+        const userEventKey = `${de.user.id}-${de.eventsList.id}`;
+        return !purchasedEventSet.has(userEventKey);
+      })
+      .map(de => ({
+        userId: de.user.id,
+        userName: `${de.user.firstName} ${de.user.lastName}`,
+        eventId: de.eventsList.id,
+        eventTitle: de.eventsList.title,
+        cost: de.eventsList.cost?.toString() || '0',
+        eventPriority: de.eventsList.priority || 1
+      }));
 
     // Calculate ticket assignments
     const { assignments, errors } = calculateTicketAssignments(userEventsData, formattedUsers);
@@ -74,10 +108,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Find the assignment for the requested user
     const userAssignment = assignments.find(a => a.userId === userId);
 
+    // Get purchased events for this specific user for reporting
+    const userPurchasedEvents = activePurchasedEvents
+      .filter(purchased => {
+        const matchingUser = allUsers.find(user => 
+          user.id === userId &&
+          user.genConName && 
+          user.genConName.trim().toLowerCase() === purchased.recipient.trim().toLowerCase()
+        );
+        return !!matchingUser;
+      })
+      .map(purchased => ({
+        eventId: purchased.eventId,
+        recipient: purchased.recipient
+      }));
+
     if (!userAssignment) {
       return res.status(200).json({
         assignment: null,
         errors: ['No assignment found for user'],
+        purchasedEvents: userPurchasedEvents,
+        excludedEventsCount: purchasedEventSet.size,
         lastCalculated: new Date().toISOString()
       });
     }
@@ -85,6 +136,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       assignment: userAssignment,
       errors,
+      purchasedEvents: userPurchasedEvents,
+      excludedEventsCount: purchasedEventSet.size,
       lastCalculated: new Date().toISOString()
     });
 

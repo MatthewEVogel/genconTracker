@@ -139,6 +139,11 @@ Thumbs.db
 /events.xlsx
 /events.zip
 
+# Database backups
+backups/
+*.sql
+*.sql.gz
+
 # Test files
 coverage/
 .nyc_output/
