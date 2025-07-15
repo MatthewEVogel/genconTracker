@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ScheduleUser, ScheduleEvent } from '@/lib/services/client/scheduleService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
 
@@ -132,6 +132,11 @@ export default function Timeline({
   userTrackedEventIds = []
 }: TimelineProps) {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+
+  // Clear selected event when day changes to prevent overlapping/stale modals
+  useEffect(() => {
+    setSelectedEvent(null);
+  }, [selectedDay]);
 
   // Filter events for the selected day (including multi-day events)
   const filterEventsByDay = (events: ScheduleEvent[]) => {
