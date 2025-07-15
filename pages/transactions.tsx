@@ -122,6 +122,9 @@ export default function TransactionsPage() {
           errors: data.errors || []
         });
 
+        // Clear the text box after successful submission
+        setTransactionText('');
+
       } catch (error) {
         setSaveResults({
           savedPurchases: 0,
@@ -164,6 +167,9 @@ export default function TransactionsPage() {
         savedRefunds: data.savedRefunds || 0,
         errors: data.errors || []
       });
+
+      // Clear the text box after successful submission
+      setTransactionText('');
 
     } catch (error) {
       setSaveResults({
