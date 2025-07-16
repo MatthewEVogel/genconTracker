@@ -49,6 +49,39 @@ export interface RemoveEventResponse {
   message: string;
 }
 
+export interface TransferEventResponse {
+  message: string;
+  fromUser: {
+    id: string;
+    name: string;
+  };
+  toUser: {
+    id: string;
+    name: string;
+  };
+  conflicts?: Array<{
+    id: string;
+    title: string;
+    startDateTime: string | null;
+    endDateTime: string | null;
+  }>;
+  warning?: string;
+  eventType?: string;
+}
+
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  genConName: string;
+  isAdmin: boolean;
+}
+
+export interface UserListResponse {
+  users: User[];
+}
+
 export class ScheduleService {
   // Get schedule data for all users
   static async getScheduleData(): Promise<ScheduleResponse> {
@@ -180,5 +213,36 @@ export class ScheduleService {
     }
 
     return conflicts;
+  }
+
+  // Transfer an event from one user to another
+  static async transferEvent(eventId: string, fromUserId: string, toUserId: string): Promise<TransferEventResponse> {
+    const response = await fetch('/api/user-events/transfer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ eventId, fromUserId, toUserId }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to transfer event');
+    }
+    
+    return data;
+  }
+
+  // Get list of all users
+  static async getAllUsers(): Promise<UserListResponse> {
+    const response = await fetch('/api/user-list');
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch users');
+    }
+    
+    return data;
   }
 }

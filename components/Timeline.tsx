@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
-import { ScheduleUser, ScheduleEvent } from '@/lib/services/client/scheduleService';
+import { ScheduleUser, ScheduleEvent, ScheduleService } from '@/lib/services/client/scheduleService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
+
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  genConName: string;
+  isAdmin: boolean;
+}
 
 interface TimelineProps {
   scheduleData: ScheduleUser[];
@@ -132,11 +141,74 @@ export default function Timeline({
   userTrackedEventIds = []
 }: TimelineProps) {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState<string>('');
 
   // Clear selected event when day changes to prevent overlapping/stale modals
   useEffect(() => {
     setSelectedEvent(null);
+    setShowTransferModal(false);
   }, [selectedDay]);
+
+  // Load users when transfer modal is opened
+  useEffect(() => {
+    if (showTransferModal) {
+      loadUsers();
+    }
+  }, [showTransferModal]);
+
+  const loadUsers = async () => {
+    try {
+      const response = await ScheduleService.getAllUsers();
+      setUsers(response.users.filter(user => user.id !== currentUser.id)); // Exclude current user
+    } catch (error) {
+      console.error('Error loading users:', error);
+      setTransferError('Failed to load users');
+    }
+  };
+
+  const handleTransferEvent = async () => {
+    if (!selectedEvent || !selectedUserId) return;
+
+    setTransferLoading(true);
+    setTransferError('');
+
+    try {
+      await ScheduleService.transferEvent(selectedEvent.id, currentUser.id, selectedUserId);
+      
+      // Close modals and refresh data
+      setShowTransferModal(false);
+      setSelectedEvent(null);
+      setSelectedUserId('');
+      
+      // Trigger a refresh of the schedule data
+      window.location.reload(); // Simple refresh - could be improved with proper state management
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Failed to transfer event');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  // Function to determine if current user can transfer an event
+  const canTransferEvent = (event: ScheduleEvent): boolean => {
+    // Check if it's in their desired events
+    if (userEventIds.includes(event.id)) {
+      return true;
+    }
+
+    // Check if it's a purchased event for the current user
+    // Find the current user in the schedule data to check if this event belongs to them
+    const currentUserData = scheduleData.find(user => user.id === currentUser.id);
+    if (currentUserData && currentUserData.events.some(e => e.id === event.id)) {
+      return true;
+    }
+
+    return false;
+  };
 
   // Filter events for the selected day (including multi-day events)
   const filterEventsByDay = (events: ScheduleEvent[]) => {
@@ -408,6 +480,95 @@ export default function Timeline({
                   )}
                 </div>
               )}
+
+              {/* Change Recipient Button - Show for events the current user can transfer */}
+              {canTransferEvent(selectedEvent) && (
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowTransferModal(true);
+                      setTransferError('');
+                      setSelectedUserId('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Change Recipient
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Event Modal */}
+      {showTransferModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold text-purple-600">
+                Change Event Recipient
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferError('');
+                  setSelectedUserId('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Transfer "{selectedEvent.title}" to:
+              </p>
+              
+              {transferError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-800 text-sm">{transferError}</p>
+                </div>
+              )}
+
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={transferLoading}
+              >
+                <option value="">Select a user...</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.firstName} {user.lastName} ({user.genConName})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleTransferEvent}
+                disabled={!selectedUserId || transferLoading}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferLoading ? 'Transferring...' : 'Transfer Event'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferError('');
+                  setSelectedUserId('');
+                }}
+                disabled={transferLoading}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
