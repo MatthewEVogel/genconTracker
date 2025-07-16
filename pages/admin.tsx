@@ -42,6 +42,24 @@ interface UpdateResult {
   };
 }
 
+interface TransactionWithDetails {
+  id: string;
+  eventId: string;
+  recipient: string;
+  purchaser: string;
+  type: 'purchase' | 'refund';
+  createdAt?: Date;
+  refundId?: string;
+  eventTitle?: string;
+}
+
+interface TransactionData {
+  transactions: TransactionWithDetails[];
+  transactionsByUser: Record<string, TransactionWithDetails[]>;
+  totalPurchases: number;
+  totalRefunds: number;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
@@ -58,6 +76,12 @@ export default function AdminPage() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+
+  // Transaction management state
+  const [transactionData, setTransactionData] = useState<TransactionData | null>(null);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [transactionDeleteLoading, setTransactionDeleteLoading] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string>('all');
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -283,9 +307,86 @@ export default function AdminPage() {
     }
   };
 
+  const fetchTransactions = async () => {
+    if (!user) return;
+    
+    try {
+      setTransactionLoading(true);
+      setError("");
+      const response = await fetch(`/api/admin/transactions?adminUserId=${user.id}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch transactions');
+      }
+      
+      setTransactionData(data);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
+  const handleDeleteTransaction = async (transaction: TransactionWithDetails) => {
+    if (!user) return;
+    
+    const confirmMessage = `Are you sure you want to delete this ${transaction.type}?\n\nEvent: ${transaction.eventTitle}\nRecipient: ${transaction.recipient}\nPurchaser: ${transaction.purchaser}\n\nThis action cannot be undone.`;
+    
+    const confirmed = await customConfirm(confirmMessage, `Delete ${transaction.type}`);
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setTransactionDeleteLoading(transaction.id);
+      setError("");
+      
+      const response = await fetch('/api/admin/transactions', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminUserId: user.id,
+          transactionId: transaction.id,
+          transactionType: transaction.type
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete transaction');
+      }
+      
+      // Refresh transaction data
+      await fetchTransactions();
+      
+      await customAlert(data.message, 'Success');
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setTransactionDeleteLoading(null);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     router.push("/");
+  };
+
+  // Filter transactions based on selected user
+  const getFilteredTransactions = () => {
+    if (!transactionData) return [];
+    
+    if (selectedUser === 'all') {
+      return transactionData.transactions;
+    }
+    
+    return transactionData.transactionsByUser[selectedUser] || [];
   };
 
   if (!user) {
@@ -571,6 +672,157 @@ export default function AdminPage() {
             <div className="text-center py-12">
               <div className="text-gray-500 text-lg">No pending user approvals.</div>
               <div className="text-gray-400 text-sm mt-2">All manual account requests have been processed.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Transaction Management Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Transaction Management</h2>
+            <button
+              onClick={fetchTransactions}
+              disabled={transactionLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {transactionLoading ? 'Loading...' : 'Load Transactions'}
+            </button>
+          </div>
+
+          <div className="text-sm text-gray-600 mb-4">
+            <p>View and manage all user transactions. You can delete individual purchases or refunds as needed.</p>
+          </div>
+
+          {transactionData && (
+            <div className="mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                <div className="text-center">
+                  <div className="font-semibold text-blue-600">{transactionData.transactions.length}</div>
+                  <div className="text-gray-600">Total Transactions</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-green-600">{transactionData.totalPurchases}</div>
+                  <div className="text-gray-600">Purchases</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-red-600">{transactionData.totalRefunds}</div>
+                  <div className="text-gray-600">Refunds</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-purple-600">{Object.keys(transactionData.transactionsByUser).length}</div>
+                  <div className="text-gray-600">Users with Transactions</div>
+                </div>
+              </div>
+
+              {/* User Filter */}
+              <div className="mb-4">
+                <label htmlFor="userFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by User:
+                </label>
+                <select
+                  id="userFilter"
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Users</option>
+                  {Object.keys(transactionData.transactionsByUser).map((userEmail) => (
+                    <option key={userEmail} value={userEmail}>
+                      {userEmail} ({transactionData.transactionsByUser[userEmail].length} transactions)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {transactionLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-lg text-gray-600">Loading transactions...</div>
+            </div>
+          ) : transactionData ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Recipient
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Purchaser
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getFilteredTransactions().map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          transaction.type === 'purchase' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {transaction.type === 'purchase' ? '💰 Purchase' : '🔄 Refund'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-mono text-gray-900">{transaction.eventId}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 max-w-xs truncate" title={transaction.eventTitle}>
+                          {transaction.eventTitle}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{transaction.recipient}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{transaction.purchaser}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleDeleteTransaction(transaction)}
+                          disabled={transactionDeleteLoading === transaction.id}
+                          className="text-red-600 hover:text-red-900 transition disabled:opacity-50"
+                        >
+                          {transactionDeleteLoading === transaction.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {getFilteredTransactions().length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-500 text-lg">
+                    {selectedUser === 'all' ? 'No transactions found.' : `No transactions found for ${selectedUser}.`}
+                  </div>
+                  <div className="text-gray-400 text-sm mt-2">
+                    {selectedUser === 'all' 
+                      ? 'Users haven\'t added any transaction data yet.' 
+                      : 'This user hasn\'t added any transaction data yet.'
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg">Click "Load Transactions" to view transaction data.</div>
+              <div className="text-gray-400 text-sm mt-2">This will load all purchases and refunds from the database.</div>
             </div>
           )}
         </div>
