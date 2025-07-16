@@ -80,26 +80,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       pe => pe.refundedEvents.length === 0
     );
 
-    // Determine if user has permission to transfer
-    let canTransfer = false;
+    // Determine event type - anyone can transfer any event
     let eventType = '';
 
     if (existingDesiredEvent) {
-      // This is a desired event - check if current user owns it or is admin
-      canTransfer = currentUser.isAdmin || currentUser.id === fromUserId;
       eventType = 'desired';
     } else if (activePurchasedEvents.length > 0) {
-      // This is a purchased event - check if current user owns it or is admin
-      canTransfer = currentUser.isAdmin || 
-                   (!!currentUser.genConName && 
-                    currentUser.genConName.toLowerCase().trim() === fromUser.genConName.toLowerCase().trim());
       eventType = 'purchased';
     } else {
       return res.status(404).json({ error: 'Event not found in source user schedule' });
-    }
-
-    if (!canTransfer) {
-      return res.status(403).json({ error: 'You can only transfer your own events or must be an admin' });
     }
 
     // Get event details for conflict checking
