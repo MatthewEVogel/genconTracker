@@ -7,7 +7,7 @@ interface TransactionWithDetails {
   recipient: string;
   purchaser: string;
   type: 'purchase' | 'refund';
-  createdAt?: Date;
+  createdAt: Date;
   refundId?: string;
   eventTitle?: string;
 }
@@ -78,6 +78,7 @@ async function handleGetTransactions(req: NextApiRequest, res: NextApiResponse) 
         recipient: purchase.recipient,
         purchaser: purchase.purchaser,
         type: 'purchase',
+        createdAt: (purchase as any).createdAt || new Date(),
         eventTitle: eventTitleMap[purchase.eventId] || 'Unknown Event'
       });
 
@@ -89,11 +90,15 @@ async function handleGetTransactions(req: NextApiRequest, res: NextApiResponse) 
           recipient: refund.userName,
           purchaser: purchase.purchaser,
           type: 'refund',
+          createdAt: (refund as any).createdAt || new Date(),
           refundId: refund.id,
           eventTitle: eventTitleMap[purchase.eventId] || 'Unknown Event'
         });
       });
     });
+
+    // Sort transactions by createdAt (newest first)
+    transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Group transactions by user for better organization
     const transactionsByUser = transactions.reduce((acc, transaction) => {

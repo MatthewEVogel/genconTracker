@@ -60,16 +60,18 @@ model PurchasedEvents {
   eventId        String
   recipient      String
   purchaser      String
+  createdAt      DateTime         @default(now())
   refundedEvents RefundedEvents[]
 
   @@index([eventId])
 }
 
 model RefundedEvents {
-  id       String          @id @default(uuid())
-  userName String
-  ticketId String
-  ticket   PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id        String          @id @default(uuid())
+  userName  String
+  ticketId  String
+  createdAt DateTime        @default(now())
+  ticket    PurchasedEvents @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@unique([userName, ticketId])
   @@index([userName])

@@ -48,7 +48,7 @@ interface TransactionWithDetails {
   recipient: string;
   purchaser: string;
   type: 'purchase' | 'refund';
-  createdAt?: Date;
+  createdAt: Date;
   refundId?: string;
   eventTitle?: string;
 }
@@ -82,6 +82,7 @@ export default function AdminPage() {
   const [transactionLoading, setTransactionLoading] = useState(false);
   const [transactionDeleteLoading, setTransactionDeleteLoading] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [showTransactions, setShowTransactions] = useState(false);
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -680,13 +681,23 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Transaction Management</h2>
-            <button
-              onClick={fetchTransactions}
-              disabled={transactionLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              {transactionLoading ? 'Loading...' : 'Load Transactions'}
-            </button>
+            <div className="space-x-3">
+              <button
+                onClick={() => setShowTransactions(!showTransactions)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                {showTransactions ? 'Hide Transactions' : 'Show Transactions'}
+              </button>
+              {showTransactions && (
+                <button
+                  onClick={fetchTransactions}
+                  disabled={transactionLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {transactionLoading ? 'Loading...' : 'Load Transactions'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="text-sm text-gray-600 mb-4">
@@ -736,11 +747,11 @@ export default function AdminPage() {
             </div>
           )}
 
-          {transactionLoading ? (
+          {showTransactions && transactionLoading ? (
             <div className="flex justify-center py-12">
               <div className="text-lg text-gray-600">Loading transactions...</div>
             </div>
-          ) : transactionData ? (
+          ) : showTransactions && transactionData ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -759,6 +770,9 @@ export default function AdminPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Purchaser
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date Added
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -790,6 +804,11 @@ export default function AdminPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{transaction.purchaser}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(transaction.createdAt).toLocaleDateString()} {new Date(transaction.createdAt).toLocaleTimeString()}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
