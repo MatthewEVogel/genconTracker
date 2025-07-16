@@ -16,7 +16,8 @@ export default async function handler(
       }
       // Get all users
       const data = await UserListService.getAllUsers();
-      return res.status(200).json(data);
+      // Transform the response to match the expected format
+      return res.status(200).json({ users: data.userLists });
     }
 
     if (req.method === 'POST') {
