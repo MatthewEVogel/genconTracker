@@ -177,7 +177,20 @@ export default function Timeline({
     setTransferError('');
 
     try {
-      await ScheduleService.transferEvent(selectedEvent.id, currentUser.id, selectedUserId);
+      // Find the actual owner of the event
+      let fromUserId = '';
+      for (const user of scheduleData) {
+        if (user.events.some(event => event.id === selectedEvent.id)) {
+          fromUserId = user.id;
+          break;
+        }
+      }
+
+      if (!fromUserId) {
+        throw new Error('Could not find the owner of this event');
+      }
+
+      await ScheduleService.transferEvent(selectedEvent.id, fromUserId, selectedUserId);
       
       // Close modals and refresh data
       setShowTransferModal(false);
@@ -195,19 +208,8 @@ export default function Timeline({
 
   // Function to determine if current user can transfer an event
   const canTransferEvent = (event: ScheduleEvent): boolean => {
-    // Check if it's in their desired events
-    if (userEventIds.includes(event.id)) {
-      return true;
-    }
-
-    // Check if it's a purchased event for the current user
-    // Find the current user in the schedule data to check if this event belongs to them
-    const currentUserData = scheduleData.find(user => user.id === currentUser.id);
-    if (currentUserData && currentUserData.events.some(e => e.id === event.id)) {
-      return true;
-    }
-
-    return false;
+    // Anyone can transfer any event
+    return true;
   };
 
   // Filter events for the selected day (including multi-day events)
