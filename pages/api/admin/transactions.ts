@@ -78,7 +78,7 @@ async function handleGetTransactions(req: NextApiRequest, res: NextApiResponse) 
         recipient: purchase.recipient,
         purchaser: purchase.purchaser,
         type: 'purchase',
-        createdAt: (purchase as any).createdAt || new Date(),
+        createdAt: purchase.createdAt,
         eventTitle: eventTitleMap[purchase.eventId] || 'Unknown Event'
       });
 
@@ -90,7 +90,7 @@ async function handleGetTransactions(req: NextApiRequest, res: NextApiResponse) 
           recipient: refund.userName,
           purchaser: purchase.purchaser,
           type: 'refund',
-          createdAt: (refund as any).createdAt || new Date(),
+          createdAt: refund.createdAt,
           refundId: refund.id,
           eventTitle: eventTitleMap[purchase.eventId] || 'Unknown Event'
         });
