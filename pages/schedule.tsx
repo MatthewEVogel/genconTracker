@@ -350,6 +350,7 @@ export default function SchedulePage() {
           />
         ) : (
           <PersonalSchedule
+            scheduleData={scheduleData}
             currentUser={{ id: user.id, name: `${user.firstName} ${user.lastName}` }}
             selectedDay={selectedDay}
             onAddEvent={handleAddEvent}

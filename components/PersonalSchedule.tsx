@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ScheduleEvent, ScheduleService } from '@/lib/services/client/scheduleService';
+import { ScheduleEvent, ScheduleService, ScheduleUser } from '@/lib/services/client/scheduleService';
 import { EventService } from '@/lib/services/client/eventService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
 
 interface PersonalScheduleProps {
+  scheduleData: ScheduleUser[];
   currentUser: { id: string; name: string };
   selectedDay: string;
   onAddEvent: (eventId: string) => void;
@@ -108,6 +109,7 @@ const checkConflicts = (events: ScheduleEvent[], targetEvent: ScheduleEvent) => 
 };
 
 export default function PersonalSchedule({
+  scheduleData,
   currentUser,
   selectedDay,
   onAddEvent,
@@ -117,30 +119,16 @@ export default function PersonalSchedule({
   onUntrackEvent,
   userTrackedEventIds = []
 }: PersonalScheduleProps) {
-  const [userEvents, setUserEvents] = useState<ScheduleEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUserEvents();
-  }, [currentUser.id]);
 
   // Clear selected event when day changes
   useEffect(() => {
     setSelectedEvent(null);
   }, [selectedDay]);
 
-  const fetchUserEvents = async () => {
-    try {
-      setLoading(true);
-      const data = await ScheduleService.getUserEvents(currentUser.id);
-      setUserEvents(data.userEvents.map(ue => ue.event));
-    } catch (error) {
-      console.error('Error fetching user events:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Get current user's events from scheduleData
+  const currentUserData = scheduleData.find(user => user.id === currentUser.id);
+  const userEvents = currentUserData ? currentUserData.events : [];
 
   // Group events by day
   const groupEventsByDay = () => {
@@ -182,15 +170,6 @@ export default function PersonalSchedule({
     daysToShow.map(day => [day, eventsByDay[day] || []])
   );
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex justify-center py-12">
-          <div className="text-lg text-gray-600">Loading your schedule...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
