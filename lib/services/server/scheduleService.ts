@@ -256,8 +256,10 @@ export class ScheduleService {
         .filter((event): event is ScheduleEvent => event !== null);
 
       if (matchingUser) {
-        // Add purchased events to existing user's schedule
-        matchingUser.events.push(...purchasedScheduleEvents);
+        // Add purchased events to existing user's schedule, but avoid duplicates
+        const existingEventIds = new Set(matchingUser.events.map(e => e.id));
+        const newPurchasedEvents = purchasedScheduleEvents.filter(e => !existingEventIds.has(e.id));
+        matchingUser.events.push(...newPurchasedEvents);
       } else {
         // Create new user row for purchased events with no matching genConName
         const originalRecipientName = purchasedEvents[0]?.recipient || recipientName;
