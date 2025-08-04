@@ -236,13 +236,12 @@ export class ScheduleService {
     for (const [recipientName, purchasedEvents] of purchasedEventsByRecipient) {
       const matchingUser = usersByGenConName.get(recipientName);
       
-      // Convert purchased events to schedule events
-      const purchasedScheduleEvents: ScheduleEvent[] = purchasedEvents
-        .map(pe => {
-          const eventData = eventsMap.get(pe.eventId);
-          if (!eventData) return null;
-          
-          return {
+      // Convert purchased events to schedule events and remove duplicates within purchased events
+      const purchasedScheduleEventsMap = new Map<string, ScheduleEvent>();
+      purchasedEvents.forEach(pe => {
+        const eventData = eventsMap.get(pe.eventId);
+        if (eventData && !purchasedScheduleEventsMap.has(eventData.id)) {
+          purchasedScheduleEventsMap.set(eventData.id, {
             id: eventData.id,
             title: eventData.title,
             startDateTime: eventData.startDateTime,
@@ -251,9 +250,11 @@ export class ScheduleService {
             location: eventData.location,
             cost: eventData.cost,
             ticketsAvailable: eventData.ticketsAvailable
-          } as ScheduleEvent;
-        })
-        .filter((event): event is ScheduleEvent => event !== null);
+          } as ScheduleEvent);
+        }
+      });
+
+      const purchasedScheduleEvents = Array.from(purchasedScheduleEventsMap.values());
 
       if (matchingUser) {
         // Add purchased events to existing user's schedule, but avoid duplicates
@@ -270,6 +271,17 @@ export class ScheduleService {
         });
       }
     }
+
+    // Final deduplication pass - ensure no user has duplicate events
+    scheduleUsers.forEach(user => {
+      const uniqueEventsMap = new Map<string, ScheduleEvent>();
+      user.events.forEach(event => {
+        if (!uniqueEventsMap.has(event.id)) {
+          uniqueEventsMap.set(event.id, event);
+        }
+      });
+      user.events = Array.from(uniqueEventsMap.values());
+    });
 
     return scheduleUsers;
   }
