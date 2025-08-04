@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import useUserStore from "@/store/useUserStore";
 import Timeline from "@/components/Timeline";
+import PersonalSchedule from "@/components/PersonalSchedule";
 import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
 import { ScheduleService, ScheduleUser, ScheduleEvent } from "@/lib/services/client/scheduleService";
@@ -12,6 +13,8 @@ import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 
 const DAYS = ['Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+type ViewMode = 'group' | 'personal';
+
 export default function SchedulePage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
@@ -20,6 +23,7 @@ export default function SchedulePage() {
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
   const [userTrackedEventIds, setUserTrackedEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('Thursday');
+  const [viewMode, setViewMode] = useState<ViewMode>('group');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [conflictModal, setConflictModal] = useState<{
@@ -281,6 +285,32 @@ export default function SchedulePage() {
           </div>
         )}
 
+        {/* View Mode Toggle */}
+        <div className="mb-6 flex justify-center">
+          <div className="bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode('group')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'group'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Group Schedule
+            </button>
+            <button
+              onClick={() => setViewMode('personal')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'personal'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Personal Schedule
+            </button>
+          </div>
+        </div>
+
         {/* Day Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
@@ -306,9 +336,20 @@ export default function SchedulePage() {
           <div className="flex justify-center py-12">
             <div className="text-lg text-gray-600">Loading schedule...</div>
           </div>
-        ) : (
+        ) : viewMode === 'group' ? (
           <Timeline
             scheduleData={scheduleData}
+            currentUser={{ id: user.id, name: `${user.firstName} ${user.lastName}` }}
+            selectedDay={selectedDay}
+            onAddEvent={handleAddEvent}
+            onRemoveEvent={handleRemoveEvent}
+            userEventIds={userEventIds}
+            onTrackEvent={handleTrackEvent}
+            onUntrackEvent={handleUntrackEvent}
+            userTrackedEventIds={userTrackedEventIds}
+          />
+        ) : (
+          <PersonalSchedule
             currentUser={{ id: user.id, name: `${user.firstName} ${user.lastName}` }}
             selectedDay={selectedDay}
             onAddEvent={handleAddEvent}
