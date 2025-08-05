@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 
 // Extend the built-in session types
@@ -26,6 +27,46 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    CredentialsProvider({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email) {
+          return null;
+        }
+
+        try {
+          // Find user by email
+          const user = await prisma.userList.findUnique({
+            where: { email: credentials.email }
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          // Return user object that will be stored in JWT
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            genConName: user.genConName,
+            isAdmin: user.isAdmin,
+            provider: user.provider,
+            image: user.image,
+            emailNotifications: user.emailNotifications,
+            approved: user.approved
+          };
+        } catch (error) {
+          console.error("Error during credentials authorization:", error);
+          return null;
+        }
+      }
     })
   ],
   callbacks: {
@@ -106,7 +147,7 @@ export const authOptions: NextAuthOptions = {
       
       return true;
     },
-    async session({ session, user }) {
+    async session({ session, token }) {
       // Get the full user data from database
       const dbUser = await prisma.userList.findUnique({
         where: { email: session.user?.email! }

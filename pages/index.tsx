@@ -78,14 +78,18 @@ export default function LandingPage() {
         throw new Error(data.error || 'Failed to create/find user');
       }
       
-      setUser(data.userList);
+      // Sign in the user with NextAuth using credentials provider
+      const signInResult = await signIn('credentials', {
+        email: formData.email,
+        redirect: false
+      });
       
-      // Check if user needs approval
-      if (data.userList.provider === 'manual' && !data.userList.approved) {
-        router.push("/waiting-approval");
-      } else {
-        router.push("/schedule");
+      if (signInResult?.error) {
+        throw new Error('Failed to sign in after account creation');
       }
+      
+      // The session will be established and _app.tsx will handle the redirect
+      // based on the user's approval status
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
