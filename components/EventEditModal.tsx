@@ -64,6 +64,22 @@ export default function EventEditModal({
     }
   }, [event]);
 
+  // Handle escape key press to close modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
+    }
+  }, [isOpen, onClose]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({
       ...prev,

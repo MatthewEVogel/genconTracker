@@ -6,6 +6,7 @@ import { EventService, Event, Pagination } from "@/lib/services/client/eventServ
 import { ScheduleService } from "@/lib/services/client/scheduleService";
 import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 import EventTooltip from "@/components/EventTooltip";
+import EventEditModal from "@/components/EventEditModal";
 
 
 interface ConflictModal {
@@ -54,6 +55,12 @@ export default function EventsPage() {
     capacityWarning: false
   });
 
+  // Admin functionality
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+
   useEffect(() => {
     // Redirect to login if no user is logged in
     if (!user) {
@@ -64,6 +71,7 @@ export default function EventsPage() {
     // Fetch user events and filter options
     fetchUserEvents();
     fetchFilterOptions();
+    checkAdminStatus();
   }, [user, router]);
 
   useEffect(() => {
@@ -119,6 +127,95 @@ export default function EventsPage() {
     } catch (err) {
       console.error('Error fetching user events:', err);
     }
+  };
+
+  const checkAdminStatus = async () => {
+    try {
+      // Check if the current user is an admin by looking them up in the user list
+      if (user?.email) {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          const data = await response.json();
+          const currentUser = data.users.find((u: any) => u.email === user.email);
+          setIsAdmin(currentUser?.isAdmin || false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
+
+  const handleEventClick = (event: Event, e: React.MouseEvent) => {
+    // Prevent event click when clicking on buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
+    if (isAdmin) {
+      setEditingEvent(event);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleEventSave = async (eventId: string, updates: any) => {
+    setEditLoading(true);
+    try {
+      const response = await fetch('/api/admin/events', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ eventId: eventId, updates: updates }),
+      });
+
+      if (response.ok) {
+        await fetchEvents(); // Refresh the events list
+        setIsEditModalOpen(false);
+        setEditingEvent(null);
+        await customAlert('Event updated successfully!', 'Success');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update event');
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
+      await customAlert(error instanceof Error ? error.message : 'Failed to update event', 'Error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEventDelete = async (eventId: string) => {
+    setEditLoading(true);
+    try {
+      const response = await fetch('/api/admin/events', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ eventId: eventId }),
+      });
+
+      if (response.ok) {
+        await fetchEvents(); // Refresh the events list
+        setIsEditModalOpen(false);
+        setEditingEvent(null);
+        await customAlert('Event deleted successfully!', 'Success');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete event');
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      await customAlert(error instanceof Error ? error.message : 'Failed to delete event', 'Error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingEvent(null);
   };
 
   const handleDayChange = (day: string) => {
@@ -573,7 +670,8 @@ export default function EventsPage() {
                         event.isCanceled 
                           ? 'bg-red-50 border-2 border-red-200' 
                           : 'bg-white'
-                      }`}
+                      } ${isAdmin ? 'hover:bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+                      onClick={(e) => handleEventClick(event, e)}
                     >
                     {/* Canceled Event Banner */}
                     {event.isCanceled && (
@@ -596,6 +694,11 @@ export default function EventsPage() {
                         event.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
                       }`}>
                         {event.title}
+                        {isAdmin && (
+                          <span className="ml-2 text-xs text-blue-600 font-normal">
+                            (Click to edit)
+                          </span>
+                        )}
                       </h3>
                       <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
                         <span className="font-mono bg-gray-100 px-2 py-1 rounded">
@@ -858,6 +961,24 @@ export default function EventsPage() {
       
       {/* Custom Alert Component */}
       <AlertComponent />
+
+      {/* Event Edit Modal */}
+      {editingEvent && (
+        <EventEditModal
+          event={{
+            ...editingEvent,
+            _count: {
+              desiredEvents: 0,
+              trackedBy: 0
+            }
+          } as any}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleEventSave}
+          onDelete={handleEventDelete}
+          loading={editLoading}
+        />
+      )}
     </div>
   );
 }
