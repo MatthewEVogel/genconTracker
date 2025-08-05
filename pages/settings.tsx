@@ -13,7 +13,8 @@ export default function Settings() {
     lastName: '',
     email: '',
     genConName: '',
-    emailNotifications: false
+    emailNotifications: false,
+    pushNotifications: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,17 +27,18 @@ export default function Settings() {
       return;
     }
 
-    // Use session data if available, fallback to store data
-    const userData = session?.user || user;
+    // Prioritize user store data (which gets updated after profile changes), fallback to session data
+    const userData = user || session?.user;
     if (!userData) return;
 
-    // Initialize form with user data (prioritize session data)
+    // Initialize form with user data
     setFormData({
       firstName: userData.firstName || '',
       lastName: userData.lastName || '',
       email: userData.email || '',
       genConName: userData.genConName || '',
-      emailNotifications: userData.emailNotifications || false
+      emailNotifications: userData.emailNotifications || false,
+      pushNotifications: (userData as any).pushNotifications || false
     });
   }, [user, session, router]);
 

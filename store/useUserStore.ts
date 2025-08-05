@@ -13,6 +13,7 @@ interface User {
   provider: string;
   image?: string;
   emailNotifications: boolean;
+  pushNotifications: boolean;
   createdAt: string;
 }
 
