@@ -164,12 +164,11 @@ export default function PersonalSchedule({
 
   const eventsByDay = groupEventsByDay();
 
-  // Filter days based on selectedDay
-  const daysToShow = selectedDay === 'All Days' ? DAYS : [selectedDay];
+  // Always show all days in Personal Schedule, ignore selectedDay filter
+  const daysToShow = DAYS;
   const filteredEventsByDay = Object.fromEntries(
     daysToShow.map(day => [day, eventsByDay[day] || []])
   );
-
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -178,36 +177,53 @@ export default function PersonalSchedule({
           Your Personal Schedule
         </h3>
         <div className="text-sm text-gray-600">
-          {selectedDay === 'All Days' ? 'All your events' : `Your ${selectedDay} events`}
+          Your complete GenCon schedule
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-10">
         {daysToShow.map(day => {
           const dayEvents = filteredEventsByDay[day] || [];
           
-          // Get the date for this day (assuming GenCon 2024 dates)
+          // Get the date for this day (GenCon dates - first Thursday of August in current year)
           const getDateForDay = (dayName: string) => {
             const dayIndex = DAYS.indexOf(dayName);
-            const baseDate = new Date('2024-08-01'); // Adjust base date as needed
-            baseDate.setDate(baseDate.getDate() + dayIndex);
-            return baseDate;
+            const currentYear = new Date().getFullYear();
+            
+            // Find the first Thursday of August in the current year
+            const firstOfAugust = new Date(currentYear, 7, 1); // Month is 0-indexed, so 7 = August
+            const firstThursday = new Date(firstOfAugust);
+            
+            // Calculate days until Thursday (4 = Thursday, 0 = Sunday)
+            const daysUntilThursday = (4 - firstOfAugust.getDay() + 7) % 7;
+            firstThursday.setDate(1 + daysUntilThursday);
+            
+            // Add the day index to get the specific day
+            const targetDate = new Date(firstThursday);
+            targetDate.setDate(firstThursday.getDate() + dayIndex);
+            
+            return targetDate;
           };
 
           const dayDate = getDateForDay(day);
 
           return (
-            <div key={day} className="border-b border-gray-100 last:border-b-0 pb-6 last:pb-0">
-              <h4 className="text-lg font-bold text-gray-900 mb-4">
-                {formatDate(dayDate)}
-              </h4>
+            <div key={day} className="border-b-2 border-gray-200 last:border-b-0 pb-8 last:pb-0">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 border-l-4 border-blue-500">
+                <h4 className="text-xl font-bold text-gray-900 mb-1">
+                  {formatDate(dayDate)}
+                </h4>
+                <div className="text-sm text-gray-600">
+                  {dayEvents.length === 0 ? 'No events scheduled' : `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
+                </div>
+              </div>
               
               {dayEvents.length === 0 ? (
-                <div className="text-gray-500 italic py-4">
+                <div className="text-gray-500 italic py-8 text-center bg-gray-50 rounded-lg">
                   No events scheduled for this day
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {dayEvents.map(event => {
                     const startTime = parseDateTime(event.startDateTime);
                     const endTime = parseDateTime(event.endDateTime);
@@ -230,7 +246,7 @@ export default function PersonalSchedule({
                         <div
                           className={`bg-white border-l-4 ${
                             hasConflict ? 'border-red-500' : eventColor
-                          } rounded-r-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4`}
+                          } rounded-r-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4 border border-gray-100`}
                           onClick={() => setSelectedEvent(event)}
                         >
                           <div className="flex justify-between items-start">
