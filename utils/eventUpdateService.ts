@@ -1,6 +1,7 @@
 import AdmZip from 'adm-zip';
 import { prisma } from '@/lib/prisma';
 import { parseXlsxToEvents, ParsedEventData } from './xlsxToTsv';
+import { sendEventUpdateNotifications } from './notificationService';
 
 export interface UpdateResult {
   success: boolean;
@@ -209,7 +210,7 @@ async function performDifferentialUpdate(
           });
           
           // Send notifications to users tracking this event
-          await notifyTrackingUsers(newEvent.id, newEvent.title, changes);
+          await sendEventUpdateNotifications(newEvent.id, newEvent.title, changes);
           
           stats.updatedEvents++;
           console.log(`Updated event: ${newEvent.id} - ${newEvent.title}`);
@@ -236,7 +237,7 @@ async function performDifferentialUpdate(
           });
           
           // Send notifications to users tracking this event
-          await notifyTrackingUsers(existingEvent.id, existingEvent.title, ['canceled']);
+          await sendEventUpdateNotifications(existingEvent.id, existingEvent.title, ['canceled']);
           
           stats.canceledEvents++;
           console.log(`Marked event as canceled: ${existingEvent.id} - ${existingEvent.title}`);
@@ -282,81 +283,4 @@ async function performDifferentialUpdate(
     stats.errors.push(errorMsg);
     console.error(errorMsg);
   }
-}
-
-async function notifyTrackingUsers(eventId: string, eventTitle: string, changes: string[]): Promise<void> {
-  try {
-    // Get all users tracking this event
-    const event = await prisma.eventsList.findUnique({
-      where: { id: eventId },
-      include: {
-        trackedBy: {
-          where: {
-            OR: [
-              { emailNotifications: true },
-              { pushNotifications: true }
-            ]
-          }
-        }
-      }
-    });
-
-    if (!event || event.trackedBy.length === 0) {
-      console.log(`No users tracking event ${eventId} with notifications enabled`);
-      return;
-    }
-
-    console.log(`Sending notifications to ${event.trackedBy.length} users tracking event ${eventId}`);
-
-    // Format the changes message
-    const changeMessage = changes.length === 1 
-      ? `${changes[0]} changed`
-      : `${changes.slice(0, -1).join(', ')} and ${changes.slice(-1)} changed`;
-
-    // Send notifications to each user
-    for (const user of event.trackedBy) {
-      try {
-        if (user.emailNotifications) {
-          await sendEmailNotification(user.email, eventTitle, changeMessage);
-        }
-        
-        if (user.pushNotifications) {
-          await sendSMSNotification(user.email, eventTitle, changeMessage);
-        }
-      } catch (error) {
-        console.error(`Failed to send notification to ${user.email}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error(`Error notifying tracking users for event ${eventId}:`, error);
-  }
-}
-
-async function sendEmailNotification(email: string, eventTitle: string, changes: string): Promise<void> {
-  // For now, just log the notification
-  // In a real implementation, this would integrate with SendGrid or similar
-  console.log(`[EMAIL] To: ${email}, Subject: Event Update - ${eventTitle}, Changes: ${changes}`);
-  
-  // TODO: Implement actual email sending with SendGrid
-  // const msg = {
-  //   to: email,
-  //   from: 'noreply@gencontracker.com',
-  //   subject: `Event Update - ${eventTitle}`,
-  //   text: `The event "${eventTitle}" has been updated. Changes: ${changes}.`,
-  //   html: `<p>The event "<strong>${eventTitle}</strong>" has been updated.</p><p><strong>Changes:</strong> ${changes}</p>`
-  // };
-  // await sgMail.send(msg);
-}
-
-async function sendSMSNotification(email: string, eventTitle: string, changes: string): Promise<void> {
-  // For now, just log the notification
-  // In a real implementation, this would integrate with Twilio or similar
-  console.log(`[SMS] To: ${email}, Message: Event "${eventTitle}" updated: ${changes}`);
-  
-  // TODO: Implement actual SMS sending with Twilio
-  // const message = await twilio.messages.create({
-  //   body: `Event "${eventTitle}" updated: ${changes}`,
-  //   from: '+1234567890',
-  //   to: userPhoneNumber
-  // });
 }

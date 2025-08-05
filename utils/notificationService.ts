@@ -8,10 +8,12 @@ if (process.env.SENDGRID_API_KEY) {
 
 
 export interface NotificationData {
-  type: 'registration_reminder';
-  timeUntilRegistration: string;
-  registrationDate: string;
+  type: 'registration_reminder' | 'event_update';
+  timeUntilRegistration?: string;
+  registrationDate?: string;
   message: string;
+  eventTitle?: string;
+  changes?: string[];
 }
 
 export async function sendRegistrationReminders(registrationDate: Date) {
@@ -99,31 +101,69 @@ export async function sendRegistrationReminders(registrationDate: Date) {
 }
 
 async function sendEmailNotification(user: any, data: NotificationData) {
-  const emailContent = {
-    to: user.email,
-    from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gencontracker.com',
-    subject: `🎲 GenCon Registration Alert - ${data.timeUntilRegistration} remaining!`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #d97706;">🎲 GenCon Tracker Alert</h2>
-        <p>Hi ${user.firstName},</p>
-        <p><strong>${data.message}</strong></p>
-        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin: 0; color: #92400e;">Registration Details:</h3>
-          <p style="margin: 5px 0;"><strong>Opens:</strong> ${data.registrationDate}</p>
-          <p style="margin: 5px 0;"><strong>Time Remaining:</strong> ${data.timeUntilRegistration}</p>
+  let emailContent;
+
+  if (data.type === 'event_update') {
+    // Event update notification
+    const changesText = data.changes && data.changes.length > 0 
+      ? data.changes.length === 1 
+        ? data.changes[0]
+        : `${data.changes.slice(0, -1).join(', ')} and ${data.changes.slice(-1)}`
+      : 'details';
+
+    emailContent = {
+      to: user.email,
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gencontracker.com',
+      subject: `🎲 Event Update - ${data.eventTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #d97706;">🎲 GenCon Tracker - Event Update</h2>
+          <p>Hi ${user.firstName},</p>
+          <p><strong>${data.message}</strong></p>
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0; color: #92400e;">Event Details:</h3>
+            <p style="margin: 5px 0;"><strong>Event:</strong> ${data.eventTitle}</p>
+            <p style="margin: 5px 0;"><strong>Changes:</strong> ${changesText}</p>
+          </div>
+          <p>You're receiving this notification because you're tracking this event and have email notifications enabled.</p>
+          <p>Check your <a href="${process.env.NEXTAUTH_URL}/schedule">schedule</a> for the latest event details.</p>
+          <hr style="margin: 30px 0;">
+          <p style="font-size: 12px; color: #666;">
+            You're receiving this because you're tracking this event and have email notifications enabled in your GenCon Tracker settings.
+            <br>
+            <a href="${process.env.NEXTAUTH_URL}/settings">Update your notification preferences</a>
+          </p>
         </div>
-        <p>Make sure you're ready with your event wishlist and payment information!</p>
-        <p>Good luck securing your tickets!</p>
-        <hr style="margin: 30px 0;">
-        <p style="font-size: 12px; color: #666;">
-          You're receiving this because you have email notifications enabled in your GenCon Tracker settings.
-          <br>
-          <a href="${process.env.NEXTAUTH_URL}/settings">Update your notification preferences</a>
-        </p>
-      </div>
-    `
-  };
+      `
+    };
+  } else {
+    // Registration reminder notification
+    emailContent = {
+      to: user.email,
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gencontracker.com',
+      subject: `🎲 GenCon Registration Alert - ${data.timeUntilRegistration} remaining!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #d97706;">🎲 GenCon Tracker Alert</h2>
+          <p>Hi ${user.firstName},</p>
+          <p><strong>${data.message}</strong></p>
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0; color: #92400e;">Registration Details:</h3>
+            <p style="margin: 5px 0;"><strong>Opens:</strong> ${data.registrationDate}</p>
+            <p style="margin: 5px 0;"><strong>Time Remaining:</strong> ${data.timeUntilRegistration}</p>
+          </div>
+          <p>Make sure you're ready with your event wishlist and payment information!</p>
+          <p>Good luck securing your tickets!</p>
+          <hr style="margin: 30px 0;">
+          <p style="font-size: 12px; color: #666;">
+            You're receiving this because you have email notifications enabled in your GenCon Tracker settings.
+            <br>
+            <a href="${process.env.NEXTAUTH_URL}/settings">Update your notification preferences</a>
+          </p>
+        </div>
+      `
+    };
+  }
 
   console.log('📧 EMAIL NOTIFICATION:', emailContent);
   
@@ -235,6 +275,87 @@ export async function checkAndSendRegistrationReminders() {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+export async function sendEventUpdateNotifications(eventId: string, eventTitle: string, changes: string[]) {
+  try {
+    // Get all users tracking this event with email notifications enabled
+    const event = await prisma.eventsList.findUnique({
+      where: { id: eventId },
+      include: {
+        trackedBy: {
+          where: {
+            emailNotifications: true
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            emailNotifications: true
+          }
+        }
+      }
+    });
+
+    if (!event || event.trackedBy.length === 0) {
+      console.log(`No users tracking event ${eventId} with email notifications enabled`);
+      return {
+        success: true,
+        message: 'No users to notify',
+        emailsSent: 0,
+        usersNotified: 0
+      };
+    }
+
+    console.log(`Sending event update notifications to ${event.trackedBy.length} users tracking event ${eventId}`);
+
+    // Format the changes message
+    const changeMessage = changes.length === 1 
+      ? `The ${changes[0]} has been updated`
+      : changes.length === 2
+      ? `The ${changes[0]} and ${changes[1]} have been updated`
+      : `The ${changes.slice(0, -1).join(', ')} and ${changes.slice(-1)} have been updated`;
+
+    const notificationData: NotificationData = {
+      type: 'event_update',
+      eventTitle: eventTitle,
+      changes: changes,
+      message: `Your tracked event "${eventTitle}" has been updated! ${changeMessage}.`
+    };
+
+    const results = {
+      emailsSent: 0,
+      errors: [] as string[]
+    };
+
+    // Send email notifications to each user
+    for (const user of event.trackedBy) {
+      try {
+        await sendEmailNotification(user, notificationData);
+        results.emailsSent++;
+        console.log(`✅ Sent event update notification to ${user.email}`);
+      } catch (error) {
+        console.error(`Failed to send event update notification to ${user.email}:`, error);
+        results.errors.push(`Failed to notify ${user.firstName} ${user.lastName}: ${error}`);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Event update notifications sent for "${eventTitle}"`,
+      usersNotified: event.trackedBy.length,
+      ...results
+    };
+  } catch (error) {
+    console.error(`Error sending event update notifications for event ${eventId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      emailsSent: 0,
+      usersNotified: 0
     };
   }
 }

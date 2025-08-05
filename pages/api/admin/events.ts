@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendEventUpdateNotifications } from '@/utils/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -127,6 +128,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'No valid fields to update' });
       }
 
+      // Detect what changed for notifications
+      const changes = [];
+      for (const [key, newValue] of Object.entries(validUpdates)) {
+        const existingValue = existingEvent[key as keyof typeof existingEvent];
+        if (existingValue !== newValue) {
+          switch (key) {
+            case 'title':
+              changes.push('title');
+              break;
+            case 'shortDescription':
+              changes.push('description');
+              break;
+            case 'eventType':
+              changes.push('type');
+              break;
+            case 'gameSystem':
+              changes.push('game system');
+              break;
+            case 'startDateTime':
+              changes.push('start time');
+              break;
+            case 'endDateTime':
+              changes.push('end time');
+              break;
+            case 'ageRequired':
+              changes.push('age requirement');
+              break;
+            case 'experienceRequired':
+              changes.push('experience requirement');
+              break;
+            case 'materialsRequired':
+              changes.push('materials required');
+              break;
+            case 'cost':
+              changes.push('cost');
+              break;
+            case 'location':
+              changes.push('location');
+              break;
+            case 'ticketsAvailable':
+              changes.push('ticket availability');
+              break;
+            case 'priority':
+              changes.push('priority');
+              break;
+            case 'isCanceled':
+              changes.push(newValue ? 'canceled' : 'uncanceled');
+              break;
+          }
+        }
+      }
+
       const updatedEvent = await prisma.eventsList.update({
         where: { id: eventId },
         data: validUpdates,
@@ -139,6 +192,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       });
+
+      // Send notifications to users tracking this event if there were changes
+      if (changes.length > 0) {
+        try {
+          await sendEventUpdateNotifications(eventId, updatedEvent.title, changes);
+          console.log(`Sent notifications for admin update to event ${eventId}: ${changes.join(', ')}`);
+        } catch (error) {
+          console.error(`Failed to send notifications for event ${eventId}:`, error);
+          // Don't fail the request if notifications fail
+        }
+      }
 
       return res.status(200).json({
         message: 'Event updated successfully',
