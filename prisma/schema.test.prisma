@@ -74,21 +74,49 @@ model RefundedEvents {
 }
 
 model UserList {
-  id                 String          @id @default(uuid())
+  id                 String                   @id @default(uuid())
   firstName          String
   lastName           String
-  email              String          @unique
+  email              String                   @unique
   genConName         String
-  isAdmin            Boolean         @default(false)
-  approved           Boolean         @default(false) // Admin approval for manual accounts
-  googleId           String?         @unique
-  provider           String          @default("manual")
+  isAdmin            Boolean                  @default(false)
+  approved           Boolean                  @default(false) // Admin approval for manual accounts
+  googleId           String?                  @unique
+  provider           String                   @default("manual")
   image              String?
-  emailNotifications Boolean         @default(false)
-  pushNotifications  Boolean         @default(false)
-  createdAt          DateTime        @default(now())
+  emailNotifications Boolean                  @default(false)
+  pushNotifications  Boolean                  @default(false)
+  createdAt          DateTime                 @default(now())
   desiredEvents      DesiredEvents[]
-  trackedEvents      EventsList[]    @relation("TrackedEvents")
+  trackedEvents      EventsList[]             @relation("TrackedEvents")
+  personalEvents     PersonalEvent[]
+  eventAttendances   PersonalEventAttendee[]
+}
+
+model PersonalEvent {
+  id        String                   @id @default(uuid())
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  location  String?
+  createdBy String
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  creator   UserList                 @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  attendees PersonalEventAttendee[]
+
+  @@index([createdBy])
+  @@index([startTime])
+}
+
+model PersonalEventAttendee {
+  id              String        @id @default(uuid())
+  personalEventId String
+  userId          String
+  personalEvent   PersonalEvent @relation(fields: [personalEventId], references: [id], onDelete: Cascade)
+  user            UserList      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([personalEventId, userId])
 }
 
 model pending_users {

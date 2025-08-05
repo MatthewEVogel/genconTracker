@@ -136,8 +136,34 @@ export default async function handler(
         res.status(500).json({ error: 'Internal server error' });
       }
     }
+  } else if (req.method === 'GET') {
+    try {
+      // Fetch all approved users for attendee selection
+      const users = await prisma.userList.findMany({
+        where: {
+          approved: true
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          genConName: true,
+          email: true,
+          isAdmin: true
+        },
+        orderBy: [
+          { firstName: 'asc' },
+          { lastName: 'asc' }
+        ]
+      });
+
+      res.status(200).json({ users });
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   } else {
-    res.setHeader('Allow', ['POST', 'PUT', 'DELETE']);
+    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
     res.status(405).json({ error: `Method ${req.method} not allowed` });
   }
 }

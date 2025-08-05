@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ScheduleUser, ScheduleEvent, ScheduleService } from '@/lib/services/client/scheduleService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
+import { PersonalEventModal } from '@/components/PersonalEventModal';
+import { personalEventService, PersonalEvent } from '@/lib/services/client/personalEventService';
 
 interface User {
   id: string;
@@ -146,6 +148,11 @@ export default function Timeline({
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferError, setTransferError] = useState<string>('');
+  const [personalEvents, setPersonalEvents] = useState<PersonalEvent[]>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; firstName: string; lastName: string; genConName: string }>>([]);
+  const [isPersonalEventModalOpen, setIsPersonalEventModalOpen] = useState(false);
+  const [modalInitialTime, setModalInitialTime] = useState<Date | undefined>();
+  const [isLoadingPersonalEvents, setIsLoadingPersonalEvents] = useState(true);
 
   // Clear selected event when day changes to prevent overlapping/stale modals
   useEffect(() => {
@@ -159,6 +166,32 @@ export default function Timeline({
       loadUsers();
     }
   }, [showTransferModal]);
+
+  // Load personal events and users on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoadingPersonalEvents(true);
+        
+        // Load personal events
+        const events = await personalEventService.getPersonalEvents(currentUser.id);
+        setPersonalEvents(events);
+
+        // Load all users for attendee selection
+        const usersResponse = await fetch('/api/users');
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setAllUsers(usersData.users || []);
+        }
+      } catch (error) {
+        console.error('Failed to load personal events or users:', error);
+      } finally {
+        setIsLoadingPersonalEvents(false);
+      }
+    };
+
+    loadData();
+  }, [currentUser.id]);
 
   const loadUsers = async () => {
     try {
@@ -206,6 +239,37 @@ export default function Timeline({
     }
   };
 
+  // Handle personal event creation
+  const handlePersonalEventCreated = (newEvent: PersonalEvent) => {
+    setPersonalEvents(prev => [...prev, newEvent]);
+    setIsPersonalEventModalOpen(false);
+  };
+
+  // Handle clicking on timeline to create personal event
+  const handleTimelineClick = (event: React.MouseEvent, dayDate: Date) => {
+    // Only handle clicks on the current user's row and only if not clicking on an event
+    const target = event.target as HTMLElement;
+    if (target.closest('.event-item')) {
+      return; // Clicked on an event, not empty space
+    }
+
+    // Calculate time based on click position within the timeline
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const containerWidth = rect.width;
+    
+    // Map click position to hour (0-24)
+    const clickRatio = Math.max(0, Math.min(1, clickX / containerWidth));
+    const clickHour = clickRatio * 24;
+    
+    // Create initial time for the modal
+    const initialTime = new Date(dayDate);
+    initialTime.setHours(Math.floor(clickHour), 0, 0, 0);
+    
+    setModalInitialTime(initialTime);
+    setIsPersonalEventModalOpen(true);
+  };
+
   // Function to determine if current user can transfer an event
   const canTransferEvent = (event: ScheduleEvent): boolean => {
     // Anyone can transfer any event
@@ -239,16 +303,72 @@ export default function Timeline({
     });
   };
 
-  // Get current user's events for conflict checking
+  // Convert personal events to ScheduleEvent format for display
+  const personalEventsAsScheduleEvents: ScheduleEvent[] = personalEvents
+    .filter(event => {
+      if (selectedDay === 'All Days') return true;
+      const startTime = parseDateTime(event.startTime);
+      if (!startTime) return false;
+      const eventDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+      return eventDayOfWeek === selectedDay;
+    })
+    .map(event => ({
+      id: `personal-${event.id}`,
+      title: event.title,
+      startDateTime: event.startTime,
+      endDateTime: event.endTime,
+      location: event.location || '',
+      eventType: 'Personal Event',
+      cost: null,
+      isPersonalEvent: true
+    }));
+
+  // Get current user's events for conflict checking (including personal events)
   const currentUserData = scheduleData.find(user => user.id === currentUser.id);
-  const currentUserEvents = currentUserData ? filterEventsByDay(currentUserData.events) : [];
+  const currentUserGenConEvents = currentUserData ? filterEventsByDay(currentUserData.events) : [];
+  const currentUserEvents = [...currentUserGenConEvents, ...personalEventsAsScheduleEvents];
+
+  // Create enhanced schedule data that includes personal events for the current user
+  const enhancedScheduleData = scheduleData.map(user => {
+    if (user.id === currentUser.id) {
+      return {
+        ...user,
+        events: [...user.events, ...personalEventsAsScheduleEvents]
+      };
+    }
+    return user;
+  });
 
   // Sort users with current user first
-  const sortedUsers = scheduleData.sort((a, b) => {
+  const sortedUsers = enhancedScheduleData.sort((a, b) => {
     if (a.id === currentUser.id) return -1;
     if (b.id === currentUser.id) return 1;
     return 0;
   });
+
+  // Helper function to get the date for a specific day
+  const getDateForDay = (dayName: string) => {
+    if (dayName === 'All Days') return new Date(); // Default to today for All Days
+    
+    const dayIndex = ['Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(dayName);
+    if (dayIndex === -1) return new Date();
+    
+    const currentYear = new Date().getFullYear();
+    
+    // Find the first Thursday of August in the current year
+    const firstOfAugust = new Date(currentYear, 7, 1); // Month is 0-indexed, so 7 = August
+    const firstThursday = new Date(firstOfAugust);
+    
+    // Calculate days until Thursday (4 = Thursday, 0 = Sunday)
+    const daysUntilThursday = (4 - firstOfAugust.getDay() + 7) % 7;
+    firstThursday.setDate(1 + daysUntilThursday);
+    
+    // Add the day index to get the specific day
+    const targetDate = new Date(firstThursday);
+    targetDate.setDate(firstThursday.getDate() + dayIndex);
+    
+    return targetDate;
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -312,7 +432,11 @@ export default function Timeline({
               return (
                 <div key={user.id} className="relative">
                   {/* Timeline Row */}
-                  <div className="relative h-16 bg-gray-50 rounded border" style={{ minWidth: '1200px' }}>
+                  <div 
+                    className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`} 
+                    style={{ minWidth: '1200px' }}
+                    onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
+                  >
                     <div className="absolute inset-0 grid grid-cols-24 gap-0">
                       {HOURS.map(hour => (
                         <div key={hour} className="border-r border-gray-200 last:border-r-0" />
@@ -330,6 +454,7 @@ export default function Timeline({
                       const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
                       const hasConflict = conflicts.length > 0;
                       const isUserEvent = userEventIds.includes(event.id);
+                      const isPersonalEvent = event.id.startsWith('personal-');
                       const eventColor = getEventColor(event.id);
                       
                       return (
@@ -339,15 +464,25 @@ export default function Timeline({
                           isUserEvent={isUserEvent}
                         >
                           <div
-                            className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                            className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
                               hasConflict 
                                 ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                : isPersonalEvent
+                                ? 'bg-purple-500 text-white z-15'  // Purple for personal events
                                 : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
                             }`}
                             style={position}
-                            onClick={() => setSelectedEvent(event)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
                           >
-                            <div className="font-medium truncate">{event.title}</div>
+                            <div className="flex items-center gap-1">
+                              <div className="font-medium truncate flex-1">{event.title}</div>
+                              {isPersonalEvent && (
+                                <span className="text-xs bg-white bg-opacity-20 px-1 rounded">P</span>
+                              )}
+                            </div>
                             <div className="truncate opacity-75">
                               {startTime.toLocaleTimeString('en-US', { 
                                 hour: 'numeric', 
@@ -359,6 +494,13 @@ export default function Timeline({
                         </ScheduleEventTooltip>
                       );
                     })}
+
+                    {/* Click instruction for current user's row */}
+                    {isCurrentUser && userEvents.length === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
+                        Click to add a personal event
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -574,6 +716,18 @@ export default function Timeline({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Personal Event Creation Modal */}
+      {isPersonalEventModalOpen && (
+        <PersonalEventModal
+          isOpen={isPersonalEventModalOpen}
+          onClose={() => setIsPersonalEventModalOpen(false)}
+          onEventCreated={handlePersonalEventCreated}
+          initialStartTime={modalInitialTime}
+          currentUserId={currentUser.id}
+          allUsers={allUsers}
+        />
       )}
     </div>
   );

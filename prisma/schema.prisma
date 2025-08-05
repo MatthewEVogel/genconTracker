@@ -94,6 +94,23 @@ model UserList {
   createdAt          DateTime        @default(now())
   desiredEvents      DesiredEvents[]
   trackedEvents      EventsList[]    @relation("TrackedEvents")
+  personalEvents     PersonalEvent[]
+}
+
+model PersonalEvent {
+  id        String   @id @default(uuid())
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  location  String?
+  createdBy String
+  attendees String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  creator   UserList @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([createdBy])
+  @@index([startTime])
 }
 
 model pending_users {

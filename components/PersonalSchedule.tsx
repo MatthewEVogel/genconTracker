@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ScheduleEvent, ScheduleService, ScheduleUser } from '@/lib/services/client/scheduleService';
 import { EventService } from '@/lib/services/client/eventService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
+import { PersonalEventModal } from '@/components/PersonalEventModal';
+import { personalEventService, PersonalEvent } from '@/lib/services/client/personalEventService';
 
 interface PersonalScheduleProps {
   scheduleData: ScheduleUser[];
@@ -120,15 +122,61 @@ export default function PersonalSchedule({
   userTrackedEventIds = []
 }: PersonalScheduleProps) {
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+  const [personalEvents, setPersonalEvents] = useState<PersonalEvent[]>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; firstName: string; lastName: string; genConName: string }>>([]);
+  const [isPersonalEventModalOpen, setIsPersonalEventModalOpen] = useState(false);
+  const [modalInitialTime, setModalInitialTime] = useState<Date | undefined>();
+  const [isLoadingPersonalEvents, setIsLoadingPersonalEvents] = useState(true);
 
   // Clear selected event when day changes
   useEffect(() => {
     setSelectedEvent(null);
   }, [selectedDay]);
 
+  // Load personal events and users on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoadingPersonalEvents(true);
+        
+        // Load personal events
+        const events = await personalEventService.getPersonalEvents(currentUser.id);
+        setPersonalEvents(events);
+
+        // Load all users for attendee selection
+        const usersResponse = await fetch('/api/users');
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setAllUsers(usersData.users || []);
+        }
+      } catch (error) {
+        console.error('Failed to load personal events or users:', error);
+      } finally {
+        setIsLoadingPersonalEvents(false);
+      }
+    };
+
+    loadData();
+  }, [currentUser.id]);
+
   // Get current user's events from scheduleData
   const currentUserData = scheduleData.find(user => user.id === currentUser.id);
   const userEvents = currentUserData ? currentUserData.events : [];
+
+  // Convert personal events to ScheduleEvent format for display
+  const personalEventsAsScheduleEvents: ScheduleEvent[] = personalEvents.map(event => ({
+    id: `personal-${event.id}`,
+    title: event.title,
+    startDateTime: event.startTime,
+    endDateTime: event.endTime,
+    location: event.location || '',
+    eventType: 'Personal Event',
+    cost: null,
+    isPersonalEvent: true
+  }));
+
+  // Combine GenCon events and personal events
+  const allEvents = [...userEvents, ...personalEventsAsScheduleEvents];
 
   // Group events by day
   const groupEventsByDay = () => {
@@ -139,7 +187,7 @@ export default function PersonalSchedule({
       grouped[day] = [];
     });
 
-    userEvents.forEach(event => {
+    allEvents.forEach(event => {
       const startTime = parseDateTime(event.startDateTime);
       if (!startTime) return;
 
@@ -163,6 +211,39 @@ export default function PersonalSchedule({
   };
 
   const eventsByDay = groupEventsByDay();
+
+  // Handle personal event creation
+  const handlePersonalEventCreated = (newEvent: PersonalEvent) => {
+    setPersonalEvents(prev => [...prev, newEvent]);
+    setIsPersonalEventModalOpen(false);
+  };
+
+  // Handle clicking on empty space to create personal event
+  const handleDayClick = (dayDate: Date, event: React.MouseEvent) => {
+    // Only handle clicks on the day container itself, not on events
+    if ((event.target as HTMLElement).closest('.event-item')) {
+      return;
+    }
+
+    // Calculate time based on click position within the day
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const clickY = event.clientY - rect.top;
+    const containerHeight = rect.height;
+    
+    // Map click position to time (assuming 6 AM to 11 PM range)
+    const startHour = 6;
+    const endHour = 23;
+    const hourRange = endHour - startHour;
+    const clickRatio = Math.max(0, Math.min(1, clickY / containerHeight));
+    const clickHour = startHour + (clickRatio * hourRange);
+    
+    // Create initial time for the modal
+    const initialTime = new Date(dayDate);
+    initialTime.setHours(Math.floor(clickHour), 0, 0, 0);
+    
+    setModalInitialTime(initialTime);
+    setIsPersonalEventModalOpen(true);
+  };
 
   // Always show all days in Personal Schedule, ignore selectedDay filter
   const daysToShow = DAYS;
@@ -218,76 +299,99 @@ export default function PersonalSchedule({
                 </div>
               </div>
               
-              {dayEvents.length === 0 ? (
-                <div className="text-gray-500 italic py-8 text-center bg-gray-50 rounded-lg">
-                  No events scheduled for this day
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {dayEvents.map(event => {
-                    const startTime = parseDateTime(event.startDateTime);
-                    const endTime = parseDateTime(event.endDateTime);
-                    
-                    if (!startTime || !endTime) return null;
+              <div 
+                className="min-h-[200px] cursor-pointer"
+                onClick={(e) => handleDayClick(dayDate, e)}
+              >
+                {dayEvents.length === 0 ? (
+                  <div className="text-gray-500 italic py-8 text-center bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    No events scheduled for this day
+                    <div className="text-xs mt-2 text-gray-400">Click to add a personal event</div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {dayEvents.map(event => {
+                      const startTime = parseDateTime(event.startDateTime);
+                      const endTime = parseDateTime(event.endDateTime);
+                      
+                      if (!startTime || !endTime) return null;
 
-                    const eventColor = getEventColor(event.id);
-                    const conflicts = checkConflicts(userEvents, event);
-                    const hasConflict = conflicts.length > 0;
-                    const isUserEvent = userEventIds.includes(event.id);
-                    const timeDisplay = formatTime(startTime, endTime);
-                    const isAllDay = timeDisplay === 'all-day';
+                      const eventColor = getEventColor(event.id);
+                      const conflicts = checkConflicts(allEvents, event);
+                      const hasConflict = conflicts.length > 0;
+                      const isUserEvent = userEventIds.includes(event.id);
+                      const isPersonalEvent = event.id.startsWith('personal-');
+                      const timeDisplay = formatTime(startTime, endTime);
+                      const isAllDay = timeDisplay === 'all-day';
 
-                    return (
-                      <ScheduleEventTooltip 
-                        key={event.id} 
-                        event={event} 
-                        isUserEvent={isUserEvent}
-                      >
-                        <div
-                          className={`bg-white border-l-4 ${
-                            hasConflict ? 'border-red-500' : eventColor
-                          } rounded-r-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4 border border-gray-100`}
-                          onClick={() => setSelectedEvent(event)}
+                      return (
+                        <ScheduleEventTooltip 
+                          key={event.id} 
+                          event={event} 
+                          isUserEvent={isUserEvent}
                         >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-medium text-gray-900 truncate">
-                                {event.title}
-                              </h5>
-                              {event.location && (
-                                <p className="text-sm text-gray-600 mt-1 flex items-center">
-                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  </svg>
-                                  {event.location}
-                                </p>
-                              )}
-                            </div>
-                            <div className="text-right ml-4 flex-shrink-0">
-                              {isAllDay ? (
-                                <span className="text-sm font-medium text-gray-700">
-                                  all-day
-                                </span>
-                              ) : (
-                                <div className="text-sm font-medium text-gray-700 whitespace-pre-line">
-                                  {timeDisplay}
+                          <div
+                            className={`event-item bg-white border-l-4 ${
+                              hasConflict ? 'border-red-500' : 
+                              isPersonalEvent ? 'border-purple-500' : eventColor
+                            } rounded-r-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4 border border-gray-100 ${
+                              isPersonalEvent ? 'bg-purple-50' : ''
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-medium text-gray-900 truncate">
+                                    {event.title}
+                                  </h5>
+                                  {isPersonalEvent && (
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                                      Personal
+                                    </span>
+                                  )}
                                 </div>
-                              )}
+                                {event.location && (
+                                  <p className="text-sm text-gray-600 mt-1 flex items-center">
+                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    {event.location}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right ml-4 flex-shrink-0">
+                                {isAllDay ? (
+                                  <span className="text-sm font-medium text-gray-700">
+                                    all-day
+                                  </span>
+                                ) : (
+                                  <div className="text-sm font-medium text-gray-700 whitespace-pre-line">
+                                    {timeDisplay}
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                            
+                            {hasConflict && (
+                              <div className="mt-2 text-xs text-red-600 font-medium">
+                                ⚠️ Conflicts with other events
+                              </div>
+                            )}
                           </div>
-                          
-                          {hasConflict && (
-                            <div className="mt-2 text-xs text-red-600 font-medium">
-                              ⚠️ Conflicts with other events
-                            </div>
-                          )}
-                        </div>
-                      </ScheduleEventTooltip>
-                    );
-                  })}
-                </div>
-              )}
+                        </ScheduleEventTooltip>
+                      );
+                    })}
+                    <div className="text-center py-4">
+                      <div className="text-xs text-gray-400">Click empty space to add a personal event</div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -412,6 +516,16 @@ export default function PersonalSchedule({
           </div>
         </div>
       )}
+
+      {/* Personal Event Creation Modal */}
+      <PersonalEventModal
+        isOpen={isPersonalEventModalOpen}
+        onClose={() => setIsPersonalEventModalOpen(false)}
+        onEventCreated={handlePersonalEventCreated}
+        initialStartTime={modalInitialTime}
+        currentUserId={currentUser.id}
+        allUsers={allUsers}
+      />
     </div>
   );
 }
