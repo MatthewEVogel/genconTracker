@@ -281,6 +281,9 @@ export async function checkAndSendRegistrationReminders() {
 
 export async function sendEventUpdateNotifications(eventId: string, eventTitle: string, changes: string[]) {
   try {
+    console.log(`🔍 Starting sendEventUpdateNotifications for event ${eventId}: "${eventTitle}"`);
+    console.log(`🔍 Changes to notify about: ${changes.join(', ')}`);
+
     // Get all users tracking this event with email notifications enabled
     const event = await prisma.eventsList.findUnique({
       where: { id: eventId },
@@ -300,8 +303,16 @@ export async function sendEventUpdateNotifications(eventId: string, eventTitle: 
       }
     });
 
+    console.log(`🔍 Event found: ${event ? 'Yes' : 'No'}`);
+    if (event) {
+      console.log(`🔍 Users tracking this event with email notifications: ${event.trackedBy.length}`);
+      event.trackedBy.forEach(user => {
+        console.log(`🔍 - ${user.firstName} ${user.lastName} (${user.email})`);
+      });
+    }
+
     if (!event || event.trackedBy.length === 0) {
-      console.log(`No users tracking event ${eventId} with email notifications enabled`);
+      console.log(`⚠️ No users tracking event ${eventId} with email notifications enabled`);
       return {
         success: true,
         message: 'No users to notify',
@@ -310,7 +321,7 @@ export async function sendEventUpdateNotifications(eventId: string, eventTitle: 
       };
     }
 
-    console.log(`Sending event update notifications to ${event.trackedBy.length} users tracking event ${eventId}`);
+    console.log(`📧 Sending event update notifications to ${event.trackedBy.length} users tracking event ${eventId}`);
 
     // Format the changes message
     const changeMessage = changes.length === 1 
@@ -326,6 +337,8 @@ export async function sendEventUpdateNotifications(eventId: string, eventTitle: 
       message: `Your tracked event "${eventTitle}" has been updated! ${changeMessage}.`
     };
 
+    console.log(`🔍 Notification data prepared:`, notificationData);
+
     const results = {
       emailsSent: 0,
       errors: [] as string[]
@@ -334,23 +347,27 @@ export async function sendEventUpdateNotifications(eventId: string, eventTitle: 
     // Send email notifications to each user
     for (const user of event.trackedBy) {
       try {
+        console.log(`📧 Attempting to send notification to ${user.email}...`);
         await sendEmailNotification(user, notificationData);
         results.emailsSent++;
-        console.log(`✅ Sent event update notification to ${user.email}`);
+        console.log(`✅ Successfully sent event update notification to ${user.email}`);
       } catch (error) {
-        console.error(`Failed to send event update notification to ${user.email}:`, error);
+        console.error(`❌ Failed to send event update notification to ${user.email}:`, error);
         results.errors.push(`Failed to notify ${user.firstName} ${user.lastName}: ${error}`);
       }
     }
 
-    return {
+    const finalResult = {
       success: true,
       message: `Event update notifications sent for "${eventTitle}"`,
       usersNotified: event.trackedBy.length,
       ...results
     };
+
+    console.log(`🔍 Final result:`, finalResult);
+    return finalResult;
   } catch (error) {
-    console.error(`Error sending event update notifications for event ${eventId}:`, error);
+    console.error(`❌ Error sending event update notifications for event ${eventId}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
