@@ -9,6 +9,7 @@ interface PersonalEventModalProps {
   initialEndTime?: Date;
   currentUserId: string;
   allUsers: Array<{ id: string; firstName: string; lastName: string; genConName: string }>;
+  editingEvent?: PersonalEvent | null;
 }
 
 export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
@@ -18,7 +19,8 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
   initialStartTime,
   initialEndTime,
   currentUserId,
-  allUsers
+  allUsers,
+  editingEvent
 }) => {
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -32,21 +34,40 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialStartTime) {
-        const roundedStart = personalEventService.roundToNearest15Minutes(initialStartTime);
-        const defaultEnd = initialEndTime || personalEventService.getDefaultEndTime(roundedStart);
-        
-        setStartTime(formatDateTimeLocal(roundedStart));
-        setEndTime(formatDateTimeLocal(defaultEnd));
+      if (editingEvent) {
+        // Populate form with existing event data
+        setTitle(editingEvent.title);
+        setStartTime(formatDateTimeLocal(new Date(editingEvent.startTime)));
+        setEndTime(formatDateTimeLocal(new Date(editingEvent.endTime)));
+        setLocation(editingEvent.location || '');
+        setSelectedAttendees(editingEvent.attendees);
+      } else {
+        // New event creation
+        if (initialStartTime) {
+          const roundedStart = personalEventService.roundToNearest15Minutes(initialStartTime);
+          const defaultEnd = initialEndTime || personalEventService.getDefaultEndTime(roundedStart);
+          
+          setStartTime(formatDateTimeLocal(roundedStart));
+          setEndTime(formatDateTimeLocal(defaultEnd));
+        } else {
+          // Default to GenCon Thursday if no initial time provided
+          // TODO: Make this automatically get the correct date of the current GenCon
+          const genconThursday = new Date(2025, 6, 31, 12, 0); // July 31, 2025 at 12:00 PM
+          const roundedStart = personalEventService.roundToNearest15Minutes(genconThursday);
+          const defaultEnd = personalEventService.getDefaultEndTime(roundedStart);
+          
+          setStartTime(formatDateTimeLocal(roundedStart));
+          setEndTime(formatDateTimeLocal(defaultEnd));
+        }
+        setTitle('');
+        setLocation('');
+        setSelectedAttendees([currentUserId]);
       }
-      setTitle('');
-      setLocation('');
-      setSelectedAttendees([currentUserId]);
       setError(null);
       setConflicts([]);
       setShowConflicts(false);
     }
-  }, [isOpen, initialStartTime, initialEndTime, currentUserId]);
+  }, [isOpen, initialStartTime, initialEndTime, currentUserId, editingEvent]);
 
   const formatDateTimeLocal = (date: Date): string => {
     const year = date.getFullYear();
@@ -81,44 +102,94 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
     setError(null);
 
     try {
-      const eventData: CreatePersonalEventData = {
-        title: title.trim(),
-        startTime,
-        endTime,
-        location: location.trim() || undefined,
-        createdBy: currentUserId,
-        attendees: selectedAttendees
-      };
+      if (editingEvent) {
+        // Update existing event
+        const updateData = {
+          id: editingEvent.id,
+          title: title.trim(),
+          startTime,
+          endTime,
+          location: location.trim() || undefined,
+          attendees: selectedAttendees
+        };
 
-      const response = await personalEventService.createPersonalEvent(eventData);
-      
-      if (response.conflicts && response.conflicts.length > 0) {
-        setConflicts(response.conflicts);
-        setShowConflicts(true);
+        const response = await personalEventService.updatePersonalEvent(updateData);
+        
+        if (response.conflicts && response.conflicts.length > 0) {
+          setConflicts(response.conflicts);
+          setShowConflicts(true);
+        } else {
+          onEventCreated(response.personalEvent);
+          onClose();
+        }
       } else {
-        onEventCreated(response.personalEvent);
-        onClose();
+        // Create new event
+        const eventData: CreatePersonalEventData = {
+          title: title.trim(),
+          startTime,
+          endTime,
+          location: location.trim() || undefined,
+          createdBy: currentUserId,
+          attendees: selectedAttendees
+        };
+
+        const response = await personalEventService.createPersonalEvent(eventData);
+        
+        if (response.conflicts && response.conflicts.length > 0) {
+          setConflicts(response.conflicts);
+          setShowConflicts(true);
+        } else {
+          onEventCreated(response.personalEvent);
+          onClose();
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create event');
+      setError(err instanceof Error ? err.message : `Failed to ${editingEvent ? 'update' : 'create'} event`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateWithConflicts = async () => {
-    // The event was already created on the server when conflicts were detected
-    // We need to fetch the created event and notify the parent component
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const events = await personalEventService.getPersonalEvents(currentUserId);
-      const latestEvent = events[events.length - 1]; // Get the most recently created event
-      if (latestEvent) {
-        onEventCreated(latestEvent);
+      if (editingEvent) {
+        // For editing, update the event with force flag
+        const updateData = {
+          id: editingEvent.id,
+          title: title.trim(),
+          startTime,
+          endTime,
+          location: location.trim() || undefined,
+          attendees: selectedAttendees,
+          force: true
+        };
+
+        const response = await personalEventService.updatePersonalEvent(updateData);
+        onEventCreated(response.personalEvent);
+      } else {
+        // For creating, create the event with force flag
+        const eventData: CreatePersonalEventData = {
+          title: title.trim(),
+          startTime,
+          endTime,
+          location: location.trim() || undefined,
+          createdBy: currentUserId,
+          attendees: selectedAttendees,
+          force: true
+        };
+
+        const response = await personalEventService.createPersonalEvent(eventData);
+        onEventCreated(response.personalEvent);
       }
+      onClose();
     } catch (error) {
-      console.error('Failed to fetch created event:', error);
+      setError(error instanceof Error ? error.message : `Failed to ${editingEvent ? 'update' : 'create'} event`);
+    } finally {
+      setIsLoading(false);
     }
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -127,7 +198,9 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Create Personal Event</h2>
+          <h2 className="text-xl font-bold">
+            {editingEvent ? 'Edit Personal Event' : 'Create Personal Event'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -164,13 +237,15 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={handleCreateWithConflicts}
-                className="flex-1 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+                className="flex-1 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 disabled:opacity-50"
+                disabled={isLoading}
               >
-                Create Anyway
+                {isLoading ? (editingEvent ? 'Updating...' : 'Creating...') : (editingEvent ? 'Update Anyway' : 'Create Anyway')}
               </button>
               <button
                 onClick={() => setShowConflicts(false)}
                 className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                disabled={isLoading}
               >
                 Edit Event
               </button>
@@ -272,7 +347,7 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating...' : 'Create Event'}
+                {isLoading ? (editingEvent ? 'Updating...' : 'Creating...') : (editingEvent ? 'Update Event' : 'Create Event')}
               </button>
             </div>
           </form>

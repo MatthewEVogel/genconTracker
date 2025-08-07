@@ -127,6 +127,7 @@ export default function PersonalSchedule({
   const [isPersonalEventModalOpen, setIsPersonalEventModalOpen] = useState(false);
   const [modalInitialTime, setModalInitialTime] = useState<Date | undefined>();
   const [isLoadingPersonalEvents, setIsLoadingPersonalEvents] = useState(true);
+  const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
 
   // Clear selected event when day changes
   useEffect(() => {
@@ -139,7 +140,7 @@ export default function PersonalSchedule({
       try {
         setIsLoadingPersonalEvents(true);
         
-        // Load personal events
+        // Load personal events where user is creator or attendee
         const events = await personalEventService.getPersonalEvents(currentUser.id);
         setPersonalEvents(events);
 
@@ -218,6 +219,40 @@ export default function PersonalSchedule({
     setIsPersonalEventModalOpen(false);
   };
 
+  // Handle personal event update
+  const handlePersonalEventUpdated = (updatedEvent: PersonalEvent) => {
+    setPersonalEvents(prev => 
+      prev.map(event => event.id === updatedEvent.id ? updatedEvent : event)
+    );
+    setEditingEvent(null);
+    setIsPersonalEventModalOpen(false);
+  };
+
+  // Handle personal event deletion
+  const handleDeletePersonalEvent = async (eventId: string) => {
+    try {
+      await personalEventService.deletePersonalEvent(eventId);
+      setPersonalEvents(prev => prev.filter(event => event.id !== eventId));
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to delete personal event:', error);
+      alert('Failed to delete event. Please try again.');
+    }
+  };
+
+  // Handle editing a personal event
+  const handleEditPersonalEvent = (event: ScheduleEvent) => {
+    // Find the corresponding personal event
+    const personalEventId = event.id.replace('personal-', '');
+    const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+    
+    if (personalEvent) {
+      setEditingEvent(personalEvent);
+      setIsPersonalEventModalOpen(true);
+      setSelectedEvent(null);
+    }
+  };
+
   // Handle clicking on empty space to create personal event
   const handleDayClick = (dayDate: Date, event: React.MouseEvent) => {
     // Only handle clicks on the day container itself, not on events
@@ -266,22 +301,17 @@ export default function PersonalSchedule({
         {daysToShow.map(day => {
           const dayEvents = filteredEventsByDay[day] || [];
           
-          // Get the date for this day (GenCon dates - first Thursday of August in current year)
+          // Get the date for this day (GenCon 2025: July 31 - August 3)
+          // TODO: Make this automatically get the correct date of the current GenCon
           const getDateForDay = (dayName: string) => {
             const dayIndex = DAYS.indexOf(dayName);
-            const currentYear = new Date().getFullYear();
             
-            // Find the first Thursday of August in the current year
-            const firstOfAugust = new Date(currentYear, 7, 1); // Month is 0-indexed, so 7 = August
-            const firstThursday = new Date(firstOfAugust);
-            
-            // Calculate days until Thursday (4 = Thursday, 0 = Sunday)
-            const daysUntilThursday = (4 - firstOfAugust.getDay() + 7) % 7;
-            firstThursday.setDate(1 + daysUntilThursday);
+            // GenCon 2025 dates: Thursday July 31 - Sunday August 3
+            const genconStartDate = new Date(2025, 6, 31); // Month is 0-indexed, so 6 = July
             
             // Add the day index to get the specific day
-            const targetDate = new Date(firstThursday);
-            targetDate.setDate(firstThursday.getDate() + dayIndex);
+            const targetDate = new Date(genconStartDate);
+            targetDate.setDate(genconStartDate.getDate() + dayIndex);
             
             return targetDate;
           };
@@ -449,36 +479,66 @@ export default function PersonalSchedule({
             </div>
 
             <div className="space-y-3">
-              <div className="flex space-x-3">
-                {userEventIds.includes(selectedEvent.id) ? (
+              {selectedEvent.isPersonalEvent ? (
+                // Personal event actions
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleEditPersonalEvent(selectedEvent)}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                  >
+                    Edit Event
+                  </button>
                   <button
                     onClick={() => {
-                      onRemoveEvent(selectedEvent.id);
-                      setSelectedEvent(null);
+                      if (confirm('Are you sure you want to delete this event?')) {
+                        const personalEventId = selectedEvent.id.replace('personal-', '');
+                        handleDeletePersonalEvent(personalEventId);
+                      }
                     }}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
                   >
-                    Remove Event
+                    Delete Event
                   </button>
-                ) : (
                   <button
-                    onClick={() => {
-                      onAddEvent(selectedEvent.id);
-                      setSelectedEvent(null);
-                    }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    onClick={() => setSelectedEvent(null)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
                   >
-                    Add Event
+                    Close
                   </button>
-                )}
-                
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                >
-                  Close
-                </button>
-              </div>
+                </div>
+              ) : (
+                // GenCon event actions
+                <div className="flex space-x-3">
+                  {userEventIds.includes(selectedEvent.id) ? (
+                    <button
+                      onClick={() => {
+                        onRemoveEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                    >
+                      Remove Event
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onAddEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                      Add Event
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={() => setSelectedEvent(null)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
               
               {/* Tracking Button */}
               {onTrackEvent && onUntrackEvent && (
@@ -517,14 +577,18 @@ export default function PersonalSchedule({
         </div>
       )}
 
-      {/* Personal Event Creation Modal */}
+      {/* Personal Event Creation/Edit Modal */}
       <PersonalEventModal
         isOpen={isPersonalEventModalOpen}
-        onClose={() => setIsPersonalEventModalOpen(false)}
-        onEventCreated={handlePersonalEventCreated}
+        onClose={() => {
+          setIsPersonalEventModalOpen(false);
+          setEditingEvent(null);
+        }}
+        onEventCreated={editingEvent ? handlePersonalEventUpdated : handlePersonalEventCreated}
         initialStartTime={modalInitialTime}
         currentUserId={currentUser.id}
         allUsers={allUsers}
+        editingEvent={editingEvent}
       />
     </div>
   );

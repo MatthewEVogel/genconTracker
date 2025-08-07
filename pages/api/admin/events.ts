@@ -129,10 +129,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Detect what changed for notifications
+      console.log(`🔍 ADMIN EVENT UPDATE: Checking for changes to event ${eventId}: "${existingEvent.title}"`);
+      console.log(`🔍 Valid updates to apply:`, validUpdates);
+      
       const changes = [];
       for (const [key, newValue] of Object.entries(validUpdates)) {
         const existingValue = existingEvent[key as keyof typeof existingEvent];
+        console.log(`🔍 Comparing ${key}: "${existingValue}" -> "${newValue}"`);
+        
         if (existingValue !== newValue) {
+          console.log(`🔍 CHANGE DETECTED in ${key}: "${existingValue}" -> "${newValue}"`);
           switch (key) {
             case 'title':
               changes.push('title');
@@ -179,6 +185,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       }
+      
+      console.log(`🔍 Total changes detected: ${changes.length} - ${changes.join(', ')}`);
 
       const updatedEvent = await prisma.eventsList.update({
         where: { id: eventId },
@@ -195,13 +203,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Send notifications to users tracking this event if there were changes
       if (changes.length > 0) {
+        console.log(`🔔 TRIGGERING NOTIFICATIONS: Event ${eventId} has ${changes.length} changes: ${changes.join(', ')}`);
         try {
-          await sendEventUpdateNotifications(eventId, updatedEvent.title, changes);
-          console.log(`Sent notifications for admin update to event ${eventId}: ${changes.join(', ')}`);
+          const notificationResult = await sendEventUpdateNotifications(eventId, updatedEvent.title, changes);
+          console.log(`✅ Notification result:`, notificationResult);
+          console.log(`📧 Sent notifications for admin update to event ${eventId}: ${changes.join(', ')}`);
         } catch (error) {
-          console.error(`Failed to send notifications for event ${eventId}:`, error);
+          console.error(`❌ Failed to send notifications for event ${eventId}:`, error);
           // Don't fail the request if notifications fail
         }
+      } else {
+        console.log(`⚠️ NO NOTIFICATIONS SENT: No changes detected for event ${eventId}`);
       }
 
       return res.status(200).json({

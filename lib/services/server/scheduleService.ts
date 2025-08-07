@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ConflictDetectionService } from './conflictDetectionService';
 
 export interface ScheduleEvent {
   id: string;
@@ -291,78 +292,24 @@ export class ScheduleService {
     const conflicts = [];
     let capacityWarning = false;
 
-    // Check for time conflicts with existing desired events
+    // Use the unified conflict detection service for comprehensive conflict checking
     if (newEvent.startDateTime && newEvent.endDateTime) {
-      const desiredEvents = await prisma.desiredEvents.findMany({
-        where: { userId },
-        include: { eventsList: true }
+      const conflictResult = await ConflictDetectionService.checkConflicts({
+        userId,
+        startTime: newEvent.startDateTime,
+        endTime: newEvent.endDateTime,
+        excludeEventId: newEvent.id,
+        excludeEventType: 'desired'
       });
 
-      for (const desiredEvent of desiredEvents) {
-        const existingEvent = desiredEvent.eventsList;
-        if (existingEvent.startDateTime && existingEvent.endDateTime) {
-          const newStart = new Date(newEvent.startDateTime);
-          const newEnd = new Date(newEvent.endDateTime);
-          const existingStart = new Date(existingEvent.startDateTime);
-          const existingEnd = new Date(existingEvent.endDateTime);
-
-          // Check for overlap
-          if (newStart < existingEnd && newEnd > existingStart) {
-            conflicts.push({
-              id: existingEvent.id,
-              title: existingEvent.title,
-              startDateTime: existingEvent.startDateTime,
-              endDateTime: existingEvent.endDateTime
-            });
-          }
-        }
-      }
-
-      // Also check for conflicts with purchased events for this user
-      const user = await prisma.userList.findUnique({
-        where: { id: userId }
-      });
-
-      if (user?.genConName) {
-        const purchasedEvents = await prisma.purchasedEvents.findMany({
-          where: {
-            recipient: {
-              equals: user.genConName,
-              mode: 'insensitive'
-            }
-          },
-          include: {
-            refundedEvents: true
-          }
-        });
-
-        // Filter out refunded events and check for conflicts
-        const activePurchasedEvents = purchasedEvents.filter(
-          pe => pe.refundedEvents.length === 0
-        );
-
-        for (const purchasedEvent of activePurchasedEvents) {
-          const eventData = await prisma.eventsList.findUnique({
-            where: { id: purchasedEvent.eventId }
-          });
-
-          if (eventData?.startDateTime && eventData?.endDateTime) {
-            const newStart = new Date(newEvent.startDateTime);
-            const newEnd = new Date(newEvent.endDateTime);
-            const existingStart = new Date(eventData.startDateTime);
-            const existingEnd = new Date(eventData.endDateTime);
-
-            // Check for overlap
-            if (newStart < existingEnd && newEnd > existingStart) {
-              conflicts.push({
-                id: eventData.id,
-                title: `${eventData.title} (Purchased)`,
-                startDateTime: eventData.startDateTime,
-                endDateTime: eventData.endDateTime
-              });
-            }
-          }
-        }
+      // Transform conflicts to match the existing API format
+      if (conflictResult.hasConflicts) {
+        conflicts.push(...conflictResult.conflicts.map(conflict => ({
+          id: conflict.id,
+          title: conflict.type === 'purchased' ? `${conflict.title} (Purchased)` : conflict.title,
+          startDateTime: conflict.startTime,
+          endDateTime: conflict.endTime
+        })));
       }
     }
 

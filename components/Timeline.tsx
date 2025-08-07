@@ -149,10 +149,12 @@ export default function Timeline({
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferError, setTransferError] = useState<string>('');
   const [personalEvents, setPersonalEvents] = useState<PersonalEvent[]>([]);
+  const [allPersonalEvents, setAllPersonalEvents] = useState<PersonalEvent[]>([]);
   const [allUsers, setAllUsers] = useState<Array<{ id: string; firstName: string; lastName: string; genConName: string }>>([]);
   const [isPersonalEventModalOpen, setIsPersonalEventModalOpen] = useState(false);
   const [modalInitialTime, setModalInitialTime] = useState<Date | undefined>();
   const [isLoadingPersonalEvents, setIsLoadingPersonalEvents] = useState(true);
+  const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
 
   // Clear selected event when day changes to prevent overlapping/stale modals
   useEffect(() => {
@@ -167,21 +169,36 @@ export default function Timeline({
     }
   }, [showTransferModal]);
 
-  // Load personal events and users on component mount
+  // Load personal events for all users and users list on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoadingPersonalEvents(true);
         
-        // Load personal events
+        // Load personal events for current user (for editing/deleting)
         const events = await personalEventService.getPersonalEvents(currentUser.id);
         setPersonalEvents(events);
 
-        // Load all users for attendee selection
+        // Load all users for attendee selection and to get their personal events
         const usersResponse = await fetch('/api/users');
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setAllUsers(usersData.users || []);
+          
+          // Load personal events for all users
+          const allPersonalEventsPromises = usersData.users.map(async (user: any) => {
+            try {
+              const userEvents = await personalEventService.getPersonalEvents(user.id);
+              return userEvents;
+            } catch (error) {
+              console.error(`Failed to load personal events for user ${user.id}:`, error);
+              return [];
+            }
+          });
+          
+          const allPersonalEventsArrays = await Promise.all(allPersonalEventsPromises);
+          const flattenedPersonalEvents = allPersonalEventsArrays.flat();
+          setAllPersonalEvents(flattenedPersonalEvents);
         }
       } catch (error) {
         console.error('Failed to load personal events or users:', error);
@@ -242,7 +259,46 @@ export default function Timeline({
   // Handle personal event creation
   const handlePersonalEventCreated = (newEvent: PersonalEvent) => {
     setPersonalEvents(prev => [...prev, newEvent]);
+    setAllPersonalEvents(prev => [...prev, newEvent]);
     setIsPersonalEventModalOpen(false);
+  };
+
+  // Handle personal event update
+  const handlePersonalEventUpdated = (updatedEvent: PersonalEvent) => {
+    setPersonalEvents(prev => 
+      prev.map(event => event.id === updatedEvent.id ? updatedEvent : event)
+    );
+    setAllPersonalEvents(prev => 
+      prev.map(event => event.id === updatedEvent.id ? updatedEvent : event)
+    );
+    setEditingEvent(null);
+    setIsPersonalEventModalOpen(false);
+  };
+
+  // Handle personal event deletion
+  const handleDeletePersonalEvent = async (eventId: string) => {
+    try {
+      await personalEventService.deletePersonalEvent(eventId);
+      setPersonalEvents(prev => prev.filter(event => event.id !== eventId));
+      setAllPersonalEvents(prev => prev.filter(event => event.id !== eventId));
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to delete personal event:', error);
+      alert('Failed to delete event. Please try again.');
+    }
+  };
+
+  // Handle editing a personal event
+  const handleEditPersonalEvent = (event: ScheduleEvent) => {
+    // Find the corresponding personal event
+    const personalEventId = event.id.replace('personal-', '');
+    const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+    
+    if (personalEvent) {
+      setEditingEvent(personalEvent);
+      setIsPersonalEventModalOpen(true);
+      setSelectedEvent(null);
+    }
   };
 
   // Handle clicking on timeline to create personal event
@@ -328,15 +384,41 @@ export default function Timeline({
   const currentUserGenConEvents = currentUserData ? filterEventsByDay(currentUserData.events) : [];
   const currentUserEvents = [...currentUserGenConEvents, ...personalEventsAsScheduleEvents];
 
-  // Create enhanced schedule data that includes personal events for the current user
+  // Create enhanced schedule data that includes personal events for ALL users where they are attendees
   const enhancedScheduleData = scheduleData.map(user => {
-    if (user.id === currentUser.id) {
-      return {
-        ...user,
-        events: [...user.events, ...personalEventsAsScheduleEvents]
-      };
-    }
-    return user;
+    // Get personal events where this user is either creator or attendee
+    const userPersonalEvents = allPersonalEvents
+      .filter(event => {
+        // Include if user is creator OR if user is in attendees array
+        return event.createdBy === user.id || event.attendees.includes(user.id);
+      })
+      .filter(event => {
+        // Filter by selected day
+        if (selectedDay === 'All Days') return true;
+        const startTime = parseDateTime(event.startTime);
+        if (!startTime) return false;
+        const eventDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+        return eventDayOfWeek === selectedDay;
+      })
+      // Remove duplicates by event ID (in case user is both creator and attendee)
+      .filter((event, index, array) => 
+        array.findIndex(e => e.id === event.id) === index
+      )
+      .map(event => ({
+        id: `personal-${event.id}`,
+        title: event.title,
+        startDateTime: event.startTime,
+        endDateTime: event.endTime,
+        location: event.location || '',
+        eventType: 'Personal Event',
+        cost: null,
+        isPersonalEvent: true
+      }));
+
+    return {
+      ...user,
+      events: [...user.events, ...userPersonalEvents]
+    };
   });
 
   // Sort users with current user first
@@ -347,25 +429,19 @@ export default function Timeline({
   });
 
   // Helper function to get the date for a specific day
+  // TODO: Make this automatically get the correct date of the current GenCon
   const getDateForDay = (dayName: string) => {
     if (dayName === 'All Days') return new Date(); // Default to today for All Days
     
     const dayIndex = ['Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(dayName);
     if (dayIndex === -1) return new Date();
     
-    const currentYear = new Date().getFullYear();
-    
-    // Find the first Thursday of August in the current year
-    const firstOfAugust = new Date(currentYear, 7, 1); // Month is 0-indexed, so 7 = August
-    const firstThursday = new Date(firstOfAugust);
-    
-    // Calculate days until Thursday (4 = Thursday, 0 = Sunday)
-    const daysUntilThursday = (4 - firstOfAugust.getDay() + 7) % 7;
-    firstThursday.setDate(1 + daysUntilThursday);
+    // GenCon 2025 dates: Thursday July 31 - Sunday August 3
+    const genconStartDate = new Date(2025, 6, 31); // Month is 0-indexed, so 6 = July
     
     // Add the day index to get the specific day
-    const targetDate = new Date(firstThursday);
-    targetDate.setDate(firstThursday.getDate() + dayIndex);
+    const targetDate = new Date(genconStartDate);
+    targetDate.setDate(genconStartDate.getDate() + dayIndex);
     
     return targetDate;
   };
@@ -561,39 +637,69 @@ export default function Timeline({
             </div>
 
             <div className="space-y-3">
-              <div className="flex space-x-3">
-                {userEventIds.includes(selectedEvent.id) ? (
+              {selectedEvent.isPersonalEvent ? (
+                // Personal event actions
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleEditPersonalEvent(selectedEvent)}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                  >
+                    Edit Event
+                  </button>
                   <button
                     onClick={() => {
-                      onRemoveEvent(selectedEvent.id);
-                      setSelectedEvent(null);
+                      if (confirm('Are you sure you want to delete this event?')) {
+                        const personalEventId = selectedEvent.id.replace('personal-', '');
+                        handleDeletePersonalEvent(personalEventId);
+                      }
                     }}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
                   >
-                    Remove Event
+                    Delete Event
                   </button>
-                ) : (
                   <button
-                    onClick={() => {
-                      onAddEvent(selectedEvent.id);
-                      setSelectedEvent(null);
-                    }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    onClick={() => setSelectedEvent(null)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
                   >
-                    Add Event
+                    Close
                   </button>
-                )}
-                
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                >
-                  Close
-                </button>
-              </div>
+                </div>
+              ) : (
+                // GenCon event actions
+                <div className="flex space-x-3">
+                  {userEventIds.includes(selectedEvent.id) ? (
+                    <button
+                      onClick={() => {
+                        onRemoveEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                    >
+                      Remove Event
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onAddEvent(selectedEvent.id);
+                        setSelectedEvent(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                      Add Event
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={() => setSelectedEvent(null)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
               
-              {/* Tracking Button */}
-              {onTrackEvent && onUntrackEvent && (
+              {/* Tracking Button - Only for GenCon events */}
+              {!selectedEvent.isPersonalEvent && onTrackEvent && onUntrackEvent && (
                 <div className="flex space-x-3">
                   {userTrackedEventIds.includes(selectedEvent.id) ? (
                     <button
@@ -625,8 +731,8 @@ export default function Timeline({
                 </div>
               )}
 
-              {/* Change Recipient Button - Show for events the current user can transfer */}
-              {canTransferEvent(selectedEvent) && (
+              {/* Change Recipient Button - Only for GenCon events */}
+              {!selectedEvent.isPersonalEvent && canTransferEvent(selectedEvent) && (
                 <div className="flex space-x-3">
                   <button
                     onClick={() => {
@@ -718,15 +824,19 @@ export default function Timeline({
         </div>
       )}
 
-      {/* Personal Event Creation Modal */}
+      {/* Personal Event Creation/Edit Modal */}
       {isPersonalEventModalOpen && (
         <PersonalEventModal
           isOpen={isPersonalEventModalOpen}
-          onClose={() => setIsPersonalEventModalOpen(false)}
-          onEventCreated={handlePersonalEventCreated}
+          onClose={() => {
+            setIsPersonalEventModalOpen(false);
+            setEditingEvent(null);
+          }}
+          onEventCreated={editingEvent ? handlePersonalEventUpdated : handlePersonalEventCreated}
           initialStartTime={modalInitialTime}
           currentUserId={currentUser.id}
           allUsers={allUsers}
+          editingEvent={editingEvent}
         />
       )}
     </div>

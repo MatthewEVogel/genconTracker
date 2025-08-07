@@ -7,6 +7,7 @@ export interface ScheduleEvent {
   location?: string | null;
   cost?: string | null;
   ticketsAvailable?: number | null;
+  isPersonalEvent?: boolean;
 }
 
 export interface ScheduleUser {

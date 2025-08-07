@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { ConflictDetectionService } from '@/lib/services/server/conflictDetectionService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -100,8 +101,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Check for conflicts in target user's schedule
-    const conflicts = await checkEventConflicts(toUserId, toUser.genConName, event);
+    // Check for conflicts in target user's schedule using the unified service
+    const conflictResult = await ConflictDetectionService.checkConflicts({
+      userId: toUserId,
+      startTime: event.startDateTime || '',
+      endTime: event.endDateTime || ''
+    });
+
+    const conflicts = conflictResult.hasConflicts ? conflictResult.conflicts.map(conflict => ({
+      id: conflict.id,
+      title: conflict.title,
+      startDateTime: conflict.startTime,
+      endDateTime: conflict.endTime
+    })) : [];
 
     // Perform the transfer based on event type
     let transferResult;
@@ -197,88 +209,4 @@ async function transferPurchasedEvent(eventId: string, fromGenConName: string, t
   }
 
   return { success: true, updatedCount: updateResult.count };
-}
-
-// Helper function to check for event conflicts
-async function checkEventConflicts(userId: string, genConName: string, newEvent: any) {
-  const conflicts: Array<{
-    id: string;
-    title: string;
-    startDateTime: string | null;
-    endDateTime: string | null;
-  }> = [];
-
-  if (!newEvent.startDateTime || !newEvent.endDateTime) {
-    return conflicts;
-  }
-
-  const newStart = new Date(newEvent.startDateTime);
-  const newEnd = new Date(newEvent.endDateTime);
-
-  // Check conflicts with desired events
-  const desiredEvents = await prisma.desiredEvents.findMany({
-    where: { userId },
-    include: { eventsList: true }
-  });
-
-  for (const desiredEvent of desiredEvents) {
-    const existingEvent = desiredEvent.eventsList;
-    if (existingEvent.startDateTime && existingEvent.endDateTime) {
-      const existingStart = new Date(existingEvent.startDateTime);
-      const existingEnd = new Date(existingEvent.endDateTime);
-
-      // Check for overlap
-      if (newStart < existingEnd && newEnd > existingStart) {
-        conflicts.push({
-          id: existingEvent.id,
-          title: existingEvent.title,
-          startDateTime: existingEvent.startDateTime,
-          endDateTime: existingEvent.endDateTime
-        });
-      }
-    }
-  }
-
-  // Check conflicts with purchased events
-  if (genConName) {
-    const purchasedEvents = await prisma.purchasedEvents.findMany({
-      where: {
-        recipient: {
-          equals: genConName,
-          mode: 'insensitive'
-        }
-      },
-      include: {
-        refundedEvents: true
-      }
-    });
-
-    // Filter out refunded events and check for conflicts
-    const activePurchasedEvents = purchasedEvents.filter(
-      pe => pe.refundedEvents.length === 0
-    );
-
-    for (const purchasedEvent of activePurchasedEvents) {
-      const eventData = await prisma.eventsList.findUnique({
-        where: { id: purchasedEvent.eventId }
-      });
-
-      if (eventData?.startDateTime && eventData?.endDateTime) {
-        const existingStart = new Date(eventData.startDateTime);
-        const existingEnd = new Date(eventData.endDateTime);
-
-        // Check for overlap
-        if (newStart < existingEnd && newEnd > existingStart) {
-          conflicts.push({
-            id: eventData.id,
-            title: `${eventData.title} (Purchased)`,
-            startDateTime: eventData.startDateTime,
-            endDateTime: eventData.endDateTime
-          });
-        }
-      }
-    }
-  }
-
-  return conflicts;
 }

@@ -23,6 +23,7 @@ export interface CreatePersonalEventData {
   location?: string;
   createdBy: string;
   attendees?: string[];
+  force?: boolean;
 }
 
 export interface UpdatePersonalEventData {
@@ -32,6 +33,7 @@ export interface UpdatePersonalEventData {
   endTime?: string;
   location?: string;
   attendees?: string[];
+  force?: boolean;
 }
 
 export interface ConflictInfo {
@@ -75,15 +77,22 @@ export const personalEventService = {
       body: JSON.stringify(eventData),
     });
 
+    if (response.status === 409) {
+      // Conflict response
+      const data = await response.json();
+      return { personalEvent: null as any, conflicts: data.conflicts };
+    }
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to create personal event');
     }
 
-    return response.json();
+    const data = await response.json();
+    return { personalEvent: data.personalEvent, conflicts: undefined };
   },
 
-  async updatePersonalEvent(eventData: UpdatePersonalEventData): Promise<PersonalEvent> {
+  async updatePersonalEvent(eventData: UpdatePersonalEventData): Promise<CreatePersonalEventResponse> {
     const response = await fetch('/api/personal-events', {
       method: 'PUT',
       headers: {
@@ -92,13 +101,19 @@ export const personalEventService = {
       body: JSON.stringify(eventData),
     });
 
+    if (response.status === 409) {
+      // Conflict response
+      const data = await response.json();
+      return { personalEvent: null as any, conflicts: data.conflicts };
+    }
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update personal event');
     }
 
     const data = await response.json();
-    return data.personalEvent;
+    return { personalEvent: data.personalEvent, conflicts: undefined };
   },
 
   async deletePersonalEvent(id: string): Promise<void> {
@@ -114,6 +129,29 @@ export const personalEventService = {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete personal event');
     }
+  },
+
+  async checkConflicts(data: {
+    startTime: string;
+    endTime: string;
+    attendees: string[];
+    excludeEventId?: string;
+  }): Promise<ConflictInfo[]> {
+    const response = await fetch('/api/personal-events/check-conflicts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to check conflicts');
+    }
+
+    const result = await response.json();
+    return result.conflicts;
   },
 
   // Utility function to round time to nearest 15 minutes

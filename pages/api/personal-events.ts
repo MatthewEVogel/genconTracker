@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { ConflictDetectionService } from '@/lib/services/server/conflictDetectionService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Check authentication for all methods
@@ -63,79 +64,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Start time must be before end time' });
       }
 
-      // Check for conflicts for the creator and all attendees
-      const allUserIds = [createdBy, ...(attendees || [])];
-      const conflicts = [];
+      // Only check for conflicts if force flag is not set
+      const { force } = req.body;
 
-      for (const userId of allUserIds) {
-        // Check conflicts with existing personal events
-        const personalEventConflicts = await prisma.personalEvent.findMany({
-          where: {
-            OR: [
-              { createdBy: userId },
-              { attendees: { has: userId } }
-            ],
-            AND: [
-              { startTime: { lt: end } },
-              { endTime: { gt: start } }
-            ]
-          },
-          include: {
-            creator: {
-              select: {
-                firstName: true,
-                lastName: true,
-                genConName: true
-              }
-            }
-          }
-        });
+      console.log(`\n➕ CREATING PERSONAL EVENT:`);
+      console.log(`   Event: "${title}" (${start.toISOString()} - ${end.toISOString()})`);
+      console.log(`   Creator: ${createdBy}`);
+      console.log(`   Attendees: ${attendees ? attendees.join(', ') : 'none'}`);
 
-        // Check conflicts with GenCon events (purchased events)
-        const genconEventConflicts = await prisma.purchasedEvents.findMany({
-          where: {
-            recipient: userId
-          }
-        });
+      if (!force) {
+        const allUserIds = [createdBy, ...(attendees || [])];
+        const allConflicts = [];
 
-        // Get the actual event details for GenCon events
-        const eventIds = genconEventConflicts.map((pe) => pe.eventId);
-        const genconEvents = await prisma.eventsList.findMany({
-          where: {
-            id: { in: eventIds }
-          }
-        });
-
-        // Check for time conflicts with GenCon events
-        const genconConflicts = genconEvents.filter(event => {
-          if (!event.startDateTime || !event.endDateTime) return false;
-          const eventStart = new Date(event.startDateTime);
-          const eventEnd = new Date(event.endDateTime);
-          return start < eventEnd && end > eventStart;
-        });
-
-        if (personalEventConflicts.length > 0 || genconConflicts.length > 0) {
-          const user = await prisma.userList.findUnique({
-            where: { id: userId },
-            select: { firstName: true, lastName: true, genConName: true }
-          });
-
-          conflicts.push({
+        for (const userId of allUserIds) {
+          // Use the unified conflict detection service
+          const conflictResult = await ConflictDetectionService.checkConflicts({
             userId,
-            userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
-            personalEventConflicts: personalEventConflicts.map(pe => ({
-              id: pe.id,
-              title: pe.title,
-              startTime: pe.startTime,
-              endTime: pe.endTime
-            })),
-            genconConflicts: genconConflicts.map(ge => ({
-              id: ge.id,
-              title: ge.title,
-              startDateTime: ge.startDateTime,
-              endDateTime: ge.endDateTime
-            }))
+            startTime: start,
+            endTime: end
           });
+
+          if (conflictResult.hasConflicts) {
+            const user = await prisma.userList.findUnique({
+              where: { id: userId },
+              select: { firstName: true, lastName: true, genConName: true }
+            });
+
+            // Transform conflicts to match the existing API format
+            const personalEventConflicts = conflictResult.conflicts
+              .filter(c => c.type === 'personal')
+              .map(c => ({
+                id: c.id,
+                title: c.title,
+                startTime: c.startTime,
+                endTime: c.endTime
+              }));
+
+            const genconConflicts = conflictResult.conflicts
+              .filter(c => c.type !== 'personal')
+              .map(c => ({
+                id: c.id,
+                title: c.title,
+                startDateTime: c.startTime,
+                endDateTime: c.endTime
+              }));
+
+            allConflicts.push({
+              userId,
+              userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
+              personalEventConflicts,
+              genconConflicts
+            });
+          }
+        }
+
+        // If there are conflicts and force is not set, return conflicts without creating the event
+        if (allConflicts.length > 0) {
+          return res.status(409).json({ conflicts: allConflicts });
         }
       }
 
@@ -161,10 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      return res.status(201).json({ 
-        personalEvent,
-        conflicts: conflicts.length > 0 ? conflicts : undefined
-      });
+      return res.status(201).json({ personalEvent });
     } catch (error) {
       console.error('Error creating personal event:', error);
       return res.status(500).json({ error: 'Failed to create personal event' });
@@ -179,16 +161,86 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Event ID is required' });
       }
 
-      // Validate that start time is before end time if provided
-      if (startTime && endTime) {
-        const start = new Date(startTime);
-        const end = new Date(endTime);
-        
-        if (start >= end) {
-          return res.status(400).json({ error: 'Start time must be before end time' });
+      // Get the existing event to use current values for fields not being updated
+      const existingEvent = await prisma.personalEvent.findUnique({
+        where: { id }
+      });
+
+      if (!existingEvent) {
+        return res.status(404).json({ error: 'Personal event not found' });
+      }
+
+      // Use existing values if new ones aren't provided
+      const finalStartTime = startTime || existingEvent.startTime.toISOString();
+      const finalEndTime = endTime || existingEvent.endTime.toISOString();
+      const finalAttendees = attendees !== undefined ? attendees : existingEvent.attendees;
+
+      // Validate that start time is before end time
+      const start = new Date(finalStartTime);
+      const end = new Date(finalEndTime);
+      
+      if (start >= end) {
+        return res.status(400).json({ error: 'Start time must be before end time' });
+      }
+
+      // Only check for conflicts if force flag is not set
+      const { force } = req.body;
+
+      if (!force) {
+        const allUserIds = [existingEvent.createdBy, ...finalAttendees];
+        const allConflicts = [];
+
+        for (const userId of allUserIds) {
+          // Use the unified conflict detection service, excluding the current event being updated
+          const conflictResult = await ConflictDetectionService.checkConflicts({
+            userId,
+            startTime: start,
+            endTime: end,
+            excludeEventId: id,
+            excludeEventType: 'personal'
+          });
+
+          if (conflictResult.hasConflicts) {
+            const user = await prisma.userList.findUnique({
+              where: { id: userId },
+              select: { firstName: true, lastName: true, genConName: true }
+            });
+
+            // Transform conflicts to match the existing API format
+            const personalEventConflicts = conflictResult.conflicts
+              .filter(c => c.type === 'personal')
+              .map(c => ({
+                id: c.id,
+                title: c.title,
+                startTime: c.startTime,
+                endTime: c.endTime
+              }));
+
+            const genconConflicts = conflictResult.conflicts
+              .filter(c => c.type !== 'personal')
+              .map(c => ({
+                id: c.id,
+                title: c.title,
+                startDateTime: c.startTime,
+                endDateTime: c.endTime
+              }));
+
+            allConflicts.push({
+              userId,
+              userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
+              personalEventConflicts,
+              genconConflicts
+            });
+          }
+        }
+
+        // If there are conflicts and force is not set, return conflicts without updating the event
+        if (allConflicts.length > 0) {
+          return res.status(409).json({ conflicts: allConflicts });
         }
       }
 
+      // Update the personal event
       const updateData: any = {};
       if (title !== undefined) updateData.title = title;
       if (startTime !== undefined) updateData.startTime = new Date(startTime);
