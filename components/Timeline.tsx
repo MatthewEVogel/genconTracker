@@ -557,6 +557,7 @@ export default function Timeline({
                         key={event.id} 
                         event={event} 
                         isUserEvent={isUserEvent}
+                        disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
                       >
                         <div
                           className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
@@ -606,8 +607,14 @@ export default function Timeline({
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 {selectedEvent.title}
@@ -775,8 +782,18 @@ export default function Timeline({
 
       {/* Transfer Event Modal */}
       {showTransferModal && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowTransferModal(false);
+            setTransferError('');
+            setSelectedUserId('');
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-purple-600">
                 Change Event Recipient

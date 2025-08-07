@@ -5,9 +5,10 @@ interface ScheduleEventTooltipProps {
   event: ScheduleEvent;
   children: React.ReactNode;
   isUserEvent?: boolean;
+  disabled?: boolean;
 }
 
-export default function ScheduleEventTooltip({ event, children, isUserEvent = false }: ScheduleEventTooltipProps) {
+export default function ScheduleEventTooltip({ event, children, isUserEvent = false, disabled = false }: ScheduleEventTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -74,6 +75,8 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
   };
 
   const handleMouseEnter = (e: React.MouseEvent) => {
+    if (disabled) return; // Don't show tooltip when disabled
+    
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -90,6 +93,8 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (disabled) return; // Don't update position when disabled
+    
     // Update tooltip position as mouse moves
     if (isVisible) {
       setPosition({
@@ -100,6 +105,8 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
   };
 
   const handleMouseLeave = () => {
+    if (disabled) return; // Don't handle mouse leave when disabled
+    
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -126,6 +133,16 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
       }
     };
   }, []);
+
+  // Hide tooltip when disabled
+  useEffect(() => {
+    if (disabled && isVisible) {
+      setIsVisible(false);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    }
+  }, [disabled, isVisible]);
 
   const endTime = formatEndDateTime(event.endDateTime);
   const duration = calculateDuration(event.startDateTime, event.endDateTime);
