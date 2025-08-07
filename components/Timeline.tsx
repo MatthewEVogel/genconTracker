@@ -491,27 +491,7 @@ export default function Timeline({
         </div>
       </div>
 
-      {/* Timeline Header */}
-      <div className="relative mb-4 overflow-x-auto" ref={(el) => {
-        // Set default scroll position to 1 PM (13th hour) on mount
-        if (el && isMobile) {
-          const scrollPosition = (13 / 24) * el.scrollWidth;
-          el.scrollLeft = scrollPosition;
-        }
-      }}>
-        <div 
-          className="gap-0 text-xs text-gray-500 border-b pb-2 grid-cols-24 grid"
-          style={{ minWidth: '1200px' }}
-        >
-          {HOURS.map(hour => (
-            <div key={hour} className="text-center text-xs truncate">
-              {formatTime(hour)}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Timeline Rows with Names Above */}
+      {/* Timeline Rows with Names Above and Individual Headers */}
       <div className="space-y-3 md:space-y-4">
         {sortedUsers.map((user) => {
           const userEvents = filterEventsByDay(user.events);
@@ -529,7 +509,7 @@ export default function Timeline({
                 </div>
               </div>
 
-              {/* Timeline Row */}
+              {/* Individual Timeline with Header */}
               <div className="overflow-x-auto" ref={(el) => {
                 // Set default scroll position to 1 PM (13th hour) on mount
                 if (el && isMobile) {
@@ -537,19 +517,29 @@ export default function Timeline({
                   el.scrollLeft = scrollPosition;
                 }
               }}>
-                <div 
-                  className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`} 
-                  style={{ minWidth: '1200px' }}
-                  onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
-                >
-                  <div className="absolute inset-0 gap-0 grid-cols-24 grid">
+                <div style={{ minWidth: '1200px' }}>
+                  {/* Timeline Header for this user - inside the scrollable container */}
+                  <div className="gap-0 text-xs text-gray-500 border-b pb-1 mb-2 grid-cols-24 grid">
                     {HOURS.map(hour => (
-                      <div key={hour} className="border-r border-gray-200 last:border-r-0" />
+                      <div key={hour} className="text-center text-xs truncate">
+                        {formatTime(hour)}
+                      </div>
                     ))}
                   </div>
 
-                  {/* Events */}
-                  {userEvents.map((event, eventIndex) => {
+                  {/* Timeline Row */}
+                  <div 
+                    className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                    onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
+                  >
+                    <div className="absolute inset-0 gap-0 grid-cols-24 grid">
+                      {HOURS.map(hour => (
+                        <div key={hour} className="border-r border-gray-200 last:border-r-0" />
+                      ))}
+                    </div>
+
+                    {/* Events */}
+                    {userEvents.map((event, eventIndex) => {
                     const startTime = parseDateTime(event.startDateTime);
                     const endTime = parseDateTime(event.endDateTime);
                     
@@ -600,12 +590,13 @@ export default function Timeline({
                     );
                   })}
 
-                  {/* Click instruction for current user's row */}
-                  {isCurrentUser && userEvents.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
-                      Click to add a personal event
-                    </div>
-                  )}
+                    {/* Click instruction for current user's row */}
+                    {isCurrentUser && userEvents.length === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
+                        Click to add a personal event
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
