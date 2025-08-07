@@ -8,6 +8,22 @@ import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 import EventTooltip from "@/components/EventTooltip";
 import EventEditModal from "@/components/EventEditModal";
 
+// Custom hook to detect screen size
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  return isMobile;
+};
 
 interface ConflictModal {
   show: boolean;
@@ -60,6 +76,13 @@ export default function EventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+
+  // Event detail modal
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
+
+  // Use mobile detection hook
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -151,10 +174,19 @@ export default function EventsPage() {
       return;
     }
     
-    if (isAdmin) {
-      setEditingEvent(event);
-      setIsEditModalOpen(true);
-    }
+    // Open event detail modal
+    setSelectedEvent(event);
+    setIsEventDetailModalOpen(true);
+  };
+
+  const handleCloseEventDetailModal = () => {
+    setSelectedEvent(null);
+    setIsEventDetailModalOpen(false);
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setIsEditModalOpen(true);
   };
 
   const handleEventSave = async (eventId: string, updates: any) => {
@@ -658,177 +690,261 @@ export default function EventsPage() {
 
         {!loading && !error && (
           <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => {
-                const isUserEvent = userEventIds.includes(event.id);
-                const isTracked = event.isTracked || userTrackedEventIds.includes(event.id);
-                
-                return (
-                  <EventTooltip key={event.id} event={event} isUserEvent={isUserEvent}>
+            {/* Mobile: Compressed Cards */}
+            {isMobile ? (
+              <div className="grid gap-3 grid-cols-2">
+                {events.map((event) => {
+                  const isUserEvent = userEventIds.includes(event.id);
+                  const isTracked = event.isTracked || userTrackedEventIds.includes(event.id);
+                  
+                  return (
                     <div
-                      className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer ${
+                      key={event.id}
+                      className={`rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer border ${
                         event.isCanceled 
-                          ? 'bg-red-50 border-2 border-red-200' 
-                          : 'bg-white'
-                      } ${isAdmin ? 'hover:bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+                          ? 'bg-red-50 border-red-200' 
+                          : 'bg-white border-gray-200'
+                      } ${isUserEvent ? 'ring-2 ring-blue-200' : ''} ${isTracked ? 'ring-2 ring-green-200' : ''}`}
                       onClick={(e) => handleEventClick(event, e)}
                     >
-                    {/* Canceled Event Banner */}
-                    {event.isCanceled && (
-                      <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
-                        <div className="flex items-center">
-                          <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <span className="text-red-800 font-semibold text-sm">CANCELED</span>
+                      {/* Status indicators */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-1">
+                          {event.isCanceled && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              CANCELED
+                            </span>
+                          )}
+                          {isUserEvent && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              IN SCHEDULE
+                            </span>
+                          )}
+                          {isTracked && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              TRACKING
+                            </span>
+                          )}
                         </div>
-                        <p className="text-red-700 text-xs mt-1">
-                          This event has been canceled
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Event Header */}
-                    <div className="mb-4">
-                      <h3 className={`text-lg font-semibold mb-2 ${
-                        event.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
-                      }`}>
-                        {event.title}
-                        {isAdmin && (
-                          <span className="ml-2 text-xs text-blue-600 font-normal">
-                            (Click to edit)
-                          </span>
-                        )}
-                      </h3>
-                      <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
-                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-                          {event.id}
-                        </span>
                         {event.eventType && (
-                          <span className={`px-2 py-1 rounded ${
-                            event.isCanceled 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {event.eventType}
                           </span>
                         )}
                       </div>
+
+                      {/* Event Title */}
+                      <h3 className={`font-semibold text-sm mb-2 line-clamp-2 ${
+                        event.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
+                      }`}>
+                        {event.title}
+                      </h3>
+
+                      {/* Event Time */}
+                      <div className="text-sm text-gray-600 mb-2">
+                        {formatDateTime(event.startDateTime)}
+                        {event.duration && (
+                          <span className="text-xs text-gray-500 ml-1">({event.duration})</span>
+                        )}
+                      </div>
+
+                      {/* Event ID and Cost */}
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                          {event.id}
+                        </span>
+                        {event.cost && (
+                          <span className="font-medium text-green-600">
+                            ${event.cost}
+                          </span>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Event Details */}
-                    <div className="space-y-3">
-                      {/* Time */}
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-1">Time:</h4>
-                        <p className="text-sm text-gray-600">
-                          {formatDateTime(event.startDateTime)}
-                          {event.duration && ` (${event.duration})`}
-                        </p>
-                      </div>
-
-                      {/* Requirements */}
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-1">Requirements:</h4>
-                        <p className="text-sm text-gray-600">
-                          {formatRequirements(event)}
-                        </p>
-                      </div>
-
-                      {/* Game System */}
-                      {event.gameSystem && (
-                        <div>
-                          <h4 className="font-medium text-gray-700 mb-1">Game System:</h4>
-                          <p className="text-sm text-gray-600">{event.gameSystem}</p>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Desktop: Detailed Cards */
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {events.map((event) => {
+                  const isUserEvent = userEventIds.includes(event.id);
+                  const isTracked = event.isTracked || userTrackedEventIds.includes(event.id);
+                  
+                  return (
+                    <EventTooltip key={event.id} event={event} isUserEvent={isUserEvent}>
+                      <div
+                        className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer ${
+                          event.isCanceled 
+                            ? 'bg-red-50 border-2 border-red-200' 
+                            : 'bg-white'
+                        } ${isAdmin ? 'hover:bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
+                        onClick={(e) => handleEventClick(event, e)}
+                      >
+                      {/* Canceled Event Banner */}
+                      {event.isCanceled && (
+                        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
+                          <div className="flex items-center">
+                            <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <span className="text-red-800 font-semibold text-sm">CANCELED</span>
+                          </div>
+                          <p className="text-red-700 text-xs mt-1">
+                            This event has been canceled
+                          </p>
                         </div>
                       )}
 
-                      {/* Location & Cost */}
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                        <div>
-                          {event.location && (
-                            <p className="text-sm text-gray-600">📍 {event.location}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {event.cost && (
-                            <p className="text-sm font-medium text-green-600">
-                              ${event.cost}
-                            </p>
+                      {/* Event Header */}
+                      <div className="mb-4">
+                        <h3 className={`text-lg font-semibold mb-2 ${
+                          event.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
+                        }`}>
+                          {event.title}
+                        </h3>
+                        <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+                          <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                            {event.id}
+                          </span>
+                          {event.eventType && (
+                            <span className={`px-2 py-1 rounded ${
+                              event.isCanceled 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {event.eventType}
+                            </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Capacity Information */}
-                      {event.ticketsAvailable !== null && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700">
-                              Maximum Capacity:
-                            </span>
-                            <span className="text-sm font-semibold text-blue-600">
-                              {event.ticketsAvailable} tickets
-                            </span>
+                      {/* Event Details */}
+                      <div className="space-y-3">
+                        {/* Time */}
+                        <div>
+                          <h4 className="font-medium text-gray-700 mb-1">Time:</h4>
+                          <p className="text-sm text-gray-600">
+                            {formatDateTime(event.startDateTime)}
+                            {event.duration && ` (${event.duration})`}
+                          </p>
+                        </div>
+
+                        {/* Requirements */}
+                        <div>
+                          <h4 className="font-medium text-gray-700 mb-1">Requirements:</h4>
+                          <p className="text-sm text-gray-600">
+                            {formatRequirements(event)}
+                          </p>
+                        </div>
+
+                        {/* Game System */}
+                        {event.gameSystem && (
+                          <div>
+                            <h4 className="font-medium text-gray-700 mb-1">Game System:</h4>
+                            <p className="text-sm text-gray-600">{event.gameSystem}</p>
+                          </div>
+                        )}
+
+                        {/* Location & Cost */}
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <div>
+                            {event.location && (
+                              <p className="text-sm text-gray-600">📍 {event.location}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {event.cost && (
+                              <p className="text-sm font-medium text-green-600">
+                                ${event.cost}
+                              </p>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Short Description */}
-                    {event.shortDescription && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm text-gray-600 line-clamp-3">
-                          {event.shortDescription}
-                        </p>
+                        {/* Capacity Information */}
+                        {event.ticketsAvailable !== null && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">
+                                Maximum Capacity:
+                              </span>
+                              <span className="text-sm font-semibold text-blue-600">
+                                {event.ticketsAvailable} tickets
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
 
-                    {/* Add/Remove Event Button and Tracking Button */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                      {isUserEvent ? (
-                        <button
-                          onClick={() => handleRemoveEvent(event.id)}
-                          className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm font-medium"
-                        >
-                          Remove from Schedule
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleAddEvent(event.id)}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
-                        >
-                          Add to Schedule
-                        </button>
+                      {/* Short Description */}
+                      {event.shortDescription && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 line-clamp-3">
+                            {event.shortDescription}
+                          </p>
+                        </div>
                       )}
-                      
-                      {/* Tracking Button */}
-                      {isTracked ? (
-                        <button
-                          onClick={() => handleUntrackEvent(event.id)}
-                          className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
-                        >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Stop Tracking Changes
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleTrackEvent(event.id)}
-                          className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
-                        >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                          Track Changes
-                        </button>
-                      )}
-                    </div>
-                    </div>
-                  </EventTooltip>
-                );
-              })}
-            </div>
+
+                      {/* Add/Remove Event Button and Tracking Button */}
+                      <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                        {isUserEvent ? (
+                          <button
+                            onClick={() => handleRemoveEvent(event.id)}
+                            className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm font-medium"
+                          >
+                            Remove from Schedule
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAddEvent(event.id)}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
+                          >
+                            Add to Schedule
+                          </button>
+                        )}
+                        
+                        {/* Tracking Button */}
+                        {isTracked ? (
+                          <button
+                            onClick={() => handleUntrackEvent(event.id)}
+                            className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Stop Tracking Changes
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleTrackEvent(event.id)}
+                            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            Track Changes
+                          </button>
+                        )}
+
+                        {/* Admin Edit Button */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleEditEvent(event)}
+                            className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition text-sm font-medium flex items-center justify-center"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Event
+                          </button>
+                        )}
+                      </div>
+                      </div>
+                    </EventTooltip>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
@@ -978,6 +1094,199 @@ export default function EventsPage() {
           onDelete={handleEventDelete}
           loading={editLoading}
         />
+      )}
+
+      {/* Event Detail Modal */}
+      {selectedEvent && isEventDetailModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={handleCloseEventDetailModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className={`text-xl font-semibold ${
+                selectedEvent.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
+              }`}>
+                {selectedEvent.title}
+              </h3>
+              <button
+                onClick={handleCloseEventDetailModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Canceled Event Banner */}
+            {selectedEvent.isCanceled && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
+                <div className="flex items-center">
+                  <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-red-800 font-semibold text-sm">CANCELED EVENT</span>
+                </div>
+                <p className="text-red-700 text-sm mt-1">
+                  This event has been canceled and may not be available.
+                </p>
+              </div>
+            )}
+
+            {/* Event Details */}
+            <div className="space-y-4 mb-6">
+              {/* Event ID and Type */}
+              <div className="flex items-center justify-between">
+                <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
+                  {selectedEvent.id}
+                </span>
+                {selectedEvent.eventType && (
+                  <span className="px-3 py-1 rounded text-sm bg-blue-100 text-blue-800">
+                    {selectedEvent.eventType}
+                  </span>
+                )}
+              </div>
+
+              {/* Time */}
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Schedule:</h4>
+                <p className="text-gray-600">
+                  {formatDateTime(selectedEvent.startDateTime)}
+                  {selectedEvent.duration && ` (Duration: ${selectedEvent.duration})`}
+                </p>
+              </div>
+
+              {/* Location & Cost */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedEvent.location && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Location:</h4>
+                    <p className="text-gray-600">📍 {selectedEvent.location}</p>
+                  </div>
+                )}
+                {selectedEvent.cost && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Cost:</h4>
+                    <p className="text-green-600 font-medium">${selectedEvent.cost}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Game System */}
+              {selectedEvent.gameSystem && (
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Game System:</h4>
+                  <p className="text-gray-600">{selectedEvent.gameSystem}</p>
+                </div>
+              )}
+
+              {/* Requirements */}
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Requirements:</h4>
+                <p className="text-gray-600">{formatRequirements(selectedEvent)}</p>
+              </div>
+
+              {/* Capacity */}
+              {selectedEvent.ticketsAvailable !== null && (
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Capacity:</h4>
+                  <p className="text-blue-600 font-medium">
+                    {selectedEvent.ticketsAvailable} tickets maximum
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedEvent.shortDescription && (
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Description:</h4>
+                  <p className="text-gray-600">{selectedEvent.shortDescription}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {/* Add/Remove Event Button */}
+              {userEventIds.includes(selectedEvent.id) ? (
+                <button
+                  onClick={() => {
+                    handleRemoveEvent(selectedEvent.id);
+                    handleCloseEventDetailModal();
+                  }}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm font-medium"
+                >
+                  Remove from Schedule
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleAddEvent(selectedEvent.id);
+                    handleCloseEventDetailModal();
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
+                >
+                  Add to Schedule
+                </button>
+              )}
+              
+              {/* Tracking Button */}
+              {(selectedEvent.isTracked || userTrackedEventIds.includes(selectedEvent.id)) ? (
+                <button
+                  onClick={() => {
+                    handleUntrackEvent(selectedEvent.id);
+                    handleCloseEventDetailModal();
+                  }}
+                  className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Stop Tracking Changes
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleTrackEvent(selectedEvent.id);
+                    handleCloseEventDetailModal();
+                  }}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  Track Changes
+                </button>
+              )}
+
+              {/* Admin Edit Button */}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    handleEditEvent(selectedEvent);
+                    handleCloseEventDetailModal();
+                  }}
+                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition text-sm font-medium flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Event
+                </button>
+              )}
+
+              {/* Close Button */}
+              <button
+                onClick={handleCloseEventDetailModal}
+                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition text-sm font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

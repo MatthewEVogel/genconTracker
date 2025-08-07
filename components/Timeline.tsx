@@ -491,119 +491,250 @@ export default function Timeline({
         </div>
       </div>
 
-      {/* Timeline Rows with Names Above and Individual Headers */}
-      <div className="space-y-3 md:space-y-4">
-        {sortedUsers.map((user) => {
-          const userEvents = filterEventsByDay(user.events);
-          const isCurrentUser = user.id === currentUser.id;
-          
-          return (
-            <div key={user.id} className="relative">
-              {/* User Name Above Timeline */}
-              <div className="mb-2 flex items-center justify-between">
-                <div className={`font-medium text-sm ${isCurrentUser ? 'text-blue-600' : 'text-gray-700'}`}>
-                  {user.name} {isCurrentUser && '(You)'}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {userEvents.length} events
-                </div>
-              </div>
-
-              {/* Individual Timeline with Header */}
-              <div className="overflow-x-auto" ref={(el) => {
-                // Set default scroll position to 1 PM (13th hour) on mount
-                if (el && isMobile) {
-                  const scrollPosition = (13 / 24) * el.scrollWidth;
-                  el.scrollLeft = scrollPosition;
-                }
-              }}>
-                <div style={{ minWidth: '1200px' }}>
-                  {/* Timeline Header for this user - inside the scrollable container */}
-                  <div className="gap-0 text-xs text-gray-500 border-b pb-1 mb-2 grid-cols-24 grid">
-                    {HOURS.map(hour => (
-                      <div key={hour} className="text-center text-xs truncate">
-                        {formatTime(hour)}
-                      </div>
-                    ))}
+      {/* Mobile: Names Above Individual Timelines */}
+      {isMobile ? (
+        <div className="space-y-3">
+          {sortedUsers.map((user) => {
+            const userEvents = filterEventsByDay(user.events);
+            const isCurrentUser = user.id === currentUser.id;
+            
+            return (
+              <div key={user.id} className="relative">
+                {/* User Name Above Timeline */}
+                <div className="mb-2 flex items-center justify-between">
+                  <div className={`font-medium text-sm ${isCurrentUser ? 'text-blue-600' : 'text-gray-700'}`}>
+                    {user.name} {isCurrentUser && '(You)'}
                   </div>
+                  <div className="text-xs text-gray-500">
+                    {userEvents.length} events
+                  </div>
+                </div>
 
-                  {/* Timeline Row */}
-                  <div 
-                    className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`}
-                    onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
-                  >
-                    <div className="absolute inset-0 gap-0 grid-cols-24 grid">
+                {/* Individual Timeline with Header */}
+                <div className="overflow-x-auto" ref={(el) => {
+                  // Set default scroll position to 1 PM (13th hour) on mount
+                  if (el && isMobile) {
+                    const scrollPosition = (13 / 24) * el.scrollWidth;
+                    el.scrollLeft = scrollPosition;
+                  }
+                }}>
+                  <div style={{ minWidth: '1200px' }}>
+                    {/* Timeline Header for this user - inside the scrollable container */}
+                    <div className="gap-0 text-xs text-gray-500 border-b pb-1 mb-2 grid-cols-24 grid">
                       {HOURS.map(hour => (
-                        <div key={hour} className="border-r border-gray-200 last:border-r-0" />
+                        <div key={hour} className="text-center text-xs truncate">
+                          {formatTime(hour)}
+                        </div>
                       ))}
                     </div>
 
-                    {/* Events */}
-                    {userEvents.map((event, eventIndex) => {
-                    const startTime = parseDateTime(event.startDateTime);
-                    const endTime = parseDateTime(event.endDateTime);
-                    
-                    if (!startTime || !endTime) return null;
-                    
-                    const position = getEventPosition(startTime, endTime, selectedDay, isMobile);
-                    const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
-                    const hasConflict = conflicts.length > 0;
-                    const isUserEvent = userEventIds.includes(event.id);
-                    const isPersonalEvent = event.id.startsWith('personal-');
-                    const eventColor = getEventColor(event.id);
-                    
-                    return (
-                      <ScheduleEventTooltip 
-                        key={event.id} 
-                        event={event} 
-                        isUserEvent={isUserEvent}
-                        disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
-                      >
-                        <div
-                          className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
-                            hasConflict 
-                              ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
-                              : isPersonalEvent
-                              ? 'bg-purple-500 text-white z-15'  // Purple for personal events
-                              : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
-                          }`}
-                          style={position}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEvent(event);
-                          }}
-                        >
-                          <div className="flex items-center gap-1">
-                            <div className="font-medium truncate flex-1">{event.title}</div>
-                            {isPersonalEvent && (
-                              <span className="text-xs bg-white bg-opacity-20 px-1 rounded">P</span>
-                            )}
-                          </div>
-                          <div className="truncate opacity-75">
-                            {startTime.toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}
-                          </div>
-                        </div>
-                      </ScheduleEventTooltip>
-                    );
-                  })}
-
-                    {/* Click instruction for current user's row */}
-                    {isCurrentUser && userEvents.length === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
-                        Click to add a personal event
+                    {/* Timeline Row */}
+                    <div 
+                      className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                      onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
+                    >
+                      <div className="absolute inset-0 gap-0 grid-cols-24 grid">
+                        {HOURS.map(hour => (
+                          <div key={hour} className="border-r border-gray-200 last:border-r-0" />
+                        ))}
                       </div>
-                    )}
+
+                      {/* Events */}
+                      {userEvents.map((event, eventIndex) => {
+                      const startTime = parseDateTime(event.startDateTime);
+                      const endTime = parseDateTime(event.endDateTime);
+                      
+                      if (!startTime || !endTime) return null;
+                      
+                      const position = getEventPosition(startTime, endTime, selectedDay, isMobile);
+                      const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
+                      const hasConflict = conflicts.length > 0;
+                      const isUserEvent = userEventIds.includes(event.id);
+                      const isPersonalEvent = event.id.startsWith('personal-');
+                      const eventColor = getEventColor(event.id);
+                      
+                      return (
+                        <ScheduleEventTooltip 
+                          key={event.id} 
+                          event={event} 
+                          isUserEvent={isUserEvent}
+                          disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
+                        >
+                          <div
+                            className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                              hasConflict 
+                                ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                : isPersonalEvent
+                                ? 'bg-purple-500 text-white z-15'  // Purple for personal events
+                                : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
+                            }`}
+                            style={position}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
+                          >
+                            <div className="flex items-center gap-1">
+                              <div className="font-medium truncate flex-1">{event.title}</div>
+                              {isPersonalEvent && (
+                                <span className="text-xs bg-white bg-opacity-20 px-1 rounded">P</span>
+                              )}
+                            </div>
+                            <div className="truncate opacity-75">
+                              {startTime.toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
+                            </div>
+                          </div>
+                        </ScheduleEventTooltip>
+                      );
+                    })}
+
+                      {/* Click instruction for current user's row */}
+                      {isCurrentUser && userEvents.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
+                          Click to add a personal event
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Desktop: Original Layout with Names on Left, Timeline on Right */
+        <div className="flex">
+          {/* Left Column: User Names */}
+          <div className="w-48 flex-shrink-0 mr-4">
+            {/* Header spacer to align with timeline header */}
+            <div className="h-8 mb-4"></div>
+            
+            {/* User Names */}
+            <div className="space-y-4">
+              {sortedUsers.map((user) => {
+                const userEvents = filterEventsByDay(user.events);
+                const isCurrentUser = user.id === currentUser.id;
+                
+                return (
+                  <div key={user.id} className="h-16 flex items-center">
+                    <div className="text-right w-full pr-2">
+                      <div className={`font-medium ${isCurrentUser ? 'text-blue-600' : 'text-gray-700'}`}>
+                        {user.name} {isCurrentUser && '(You)'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {userEvents.length} events
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Right Column: Timeline */}
+          <div className="flex-1 min-w-0 overflow-x-auto">
+            {/* Timeline Header */}
+            <div className="relative mb-4">
+              <div className="grid grid-cols-24 gap-0 text-xs text-gray-500 border-b pb-2" style={{ minWidth: '1200px' }}>
+                {HOURS.map(hour => (
+                  <div key={hour} className="text-center text-xs truncate">
+                    {formatTime(hour)}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Timeline Rows */}
+            <div className="space-y-4">
+              {sortedUsers.map((user) => {
+                const userEvents = filterEventsByDay(user.events);
+                const isCurrentUser = user.id === currentUser.id;
+                
+                return (
+                  <div key={user.id} className="relative">
+                    {/* Timeline Row */}
+                    <div 
+                      className={`relative h-16 bg-gray-50 rounded border ${isCurrentUser ? 'cursor-pointer hover:bg-gray-100' : ''}`} 
+                      style={{ minWidth: '1200px' }}
+                      onClick={isCurrentUser ? (e) => handleTimelineClick(e, getDateForDay(selectedDay)) : undefined}
+                    >
+                      <div className="absolute inset-0 grid grid-cols-24 gap-0">
+                        {HOURS.map(hour => (
+                          <div key={hour} className="border-r border-gray-200 last:border-r-0" />
+                        ))}
+                      </div>
+
+                      {/* Events */}
+                      {userEvents.map((event, eventIndex) => {
+                        const startTime = parseDateTime(event.startDateTime);
+                        const endTime = parseDateTime(event.endDateTime);
+                        
+                        if (!startTime || !endTime) return null;
+                        
+                        const position = getEventPosition(startTime, endTime, selectedDay, isMobile);
+                        const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
+                        const hasConflict = conflicts.length > 0;
+                        const isUserEvent = userEventIds.includes(event.id);
+                        const isPersonalEvent = event.id.startsWith('personal-');
+                        const eventColor = getEventColor(event.id);
+                        
+                        return (
+                          <ScheduleEventTooltip 
+                            key={event.id} 
+                            event={event} 
+                            isUserEvent={isUserEvent}
+                            disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
+                          >
+                            <div
+                              className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                                hasConflict 
+                                  ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                  : isPersonalEvent
+                                  ? 'bg-purple-500 text-white z-15'  // Purple for personal events
+                                  : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
+                              }`}
+                              style={position}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEvent(event);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                <div className="font-medium truncate flex-1">{event.title}</div>
+                                {isPersonalEvent && (
+                                  <span className="text-xs bg-white bg-opacity-20 px-1 rounded">P</span>
+                                )}
+                              </div>
+                              <div className="truncate opacity-75">
+                                {startTime.toLocaleTimeString('en-US', { 
+                                  hour: 'numeric', 
+                                  minute: '2-digit',
+                                  hour12: true 
+                                })}
+                              </div>
+                            </div>
+                          </ScheduleEventTooltip>
+                        );
+                      })}
+
+                      {/* Click instruction for current user's row */}
+                      {isCurrentUser && userEvents.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs pointer-events-none">
+                          Click to add a personal event
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Event Detail Modal */}
       {selectedEvent && (
