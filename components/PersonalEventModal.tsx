@@ -79,6 +79,12 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
   };
 
   const handleAttendeeToggle = (userId: string) => {
+    // TODO: Fix the underlying issue where creators can uncheck themselves but events still appear on their calendar
+    // For now, prevent the creator from unchecking themselves to avoid calendar display issues
+    if (userId === currentUserId) {
+      return; // Don't allow creator to uncheck themselves
+    }
+    
     setSelectedAttendees(prev => 
       prev.includes(userId) 
         ? prev.filter(id => id !== userId)
@@ -316,8 +322,13 @@ export const PersonalEventModal: React.FC<PersonalEventModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Attendees
               </label>
+              <div className="text-xs text-gray-500 mb-2">
+                You are automatically included as the event creator
+              </div>
               <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
-                {allUsers.map((user) => (
+                {allUsers
+                  .filter(user => user.id !== currentUserId) // Remove creator from attendee selection
+                  .map((user) => (
                   <label key={user.id} className="flex items-center mb-1">
                     <input
                       type="checkbox"

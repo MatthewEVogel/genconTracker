@@ -37,10 +37,6 @@ export class ConflictDetectionService {
       throw new Error('Start time must be before end time');
     }
 
-    console.log(`\n🔍 CONFLICT DETECTION DEBUG - User: ${userId}`);
-    console.log(`📅 Checking time range: ${startTime.toISOString()} - ${endTime.toISOString()}`);
-    console.log(`🚫 Excluding: ${excludeEventId ? `${excludeEventId} (${excludeEventType})` : 'none'}`);
-
     const conflicts: ConflictEvent[] = [];
 
     // Check all event types in parallel for better performance
@@ -56,25 +52,6 @@ export class ConflictDetectionService {
     ]);
 
     conflicts.push(...personalConflicts, ...desiredConflicts, ...purchasedConflicts);
-
-    console.log(`\n📊 CONFLICT SUMMARY:`);
-    console.log(`   Personal: ${personalConflicts.length} conflicts`);
-    console.log(`   Desired: ${desiredConflicts.length} conflicts`);
-    console.log(`   Tracked: EXCLUDED (monitoring only)`);
-    console.log(`   Purchased: ${purchasedConflicts.length} conflicts`);
-    console.log(`   TOTAL: ${conflicts.length} conflicts`);
-
-    if (conflicts.length > 0) {
-      console.log(`\n⚠️  CONFLICTS FOUND:`);
-      conflicts.slice(0, 5).forEach((conflict, index) => {
-        console.log(`   ${index + 1}. [${conflict.type}] ${conflict.title} (${conflict.startTime} - ${conflict.endTime})`);
-      });
-      if (conflicts.length > 5) {
-        console.log(`   ... and ${conflicts.length - 5} more conflicts`);
-      }
-    } else {
-      console.log(`✅ No conflicts found`);
-    }
 
     return {
       hasConflicts: conflicts.length > 0,
@@ -117,15 +94,6 @@ export class ConflictDetectionService {
         }
       }
     });
-
-    console.log(`\n👤 PERSONAL EVENTS CHECK:`);
-    console.log(`   Found ${allPersonalEvents.length} personal events for user ${userId}`);
-    allPersonalEvents.slice(0, 10).forEach((event: any, index) => {
-      console.log(`   ${index + 1}. "${event.title}" (${event.startTime.toISOString()} - ${event.endTime.toISOString()}) by ${event.creator.firstName} ${event.creator.lastName}`);
-    });
-    if (allPersonalEvents.length > 10) {
-      console.log(`   ... and ${allPersonalEvents.length - 10} more personal events`);
-    }
 
     // Now filter for only the conflicting ones
     const conflictingEvents = allPersonalEvents.filter((event: any) => {
@@ -172,23 +140,7 @@ export class ConflictDetectionService {
       }
     });
 
-    console.log(`\n🎯 DESIRED EVENTS CHECK:`);
-    console.log(`   Found ${desiredEvents.length} desired events for user ${userId}`);
-    desiredEvents.slice(0, 10).forEach((desiredEvent, index) => {
-      const event = desiredEvent.eventsList;
-      if (event.startDateTime && event.endDateTime) {
-        console.log(`   ${index + 1}. "${event.title}" (${event.startDateTime} - ${event.endDateTime})`);
-      } else {
-        console.log(`   ${index + 1}. "${event.title}" (NO TIME DATA)`);
-      }
-    });
-    if (desiredEvents.length > 10) {
-      console.log(`   ... and ${desiredEvents.length - 10} more desired events`);
-    }
-
     const conflicts: ConflictEvent[] = [];
-
-    console.log(`   Checking for time overlaps with new event time range: ${startTime.toISOString()} - ${endTime.toISOString()}`);
 
     for (const desiredEvent of desiredEvents) {
       const event = desiredEvent.eventsList;
@@ -196,15 +148,8 @@ export class ConflictDetectionService {
         const eventStart = new Date(event.startDateTime);
         const eventEnd = new Date(event.endDateTime);
 
-        console.log(`   Checking overlap: "${event.title}" (${event.startDateTime} - ${event.endDateTime})`);
-        console.log(`     New event: ${startTime.toISOString()} - ${endTime.toISOString()}`);
-        console.log(`     Existing: ${eventStart.toISOString()} - ${eventEnd.toISOString()}`);
-        console.log(`     Overlap check: startTime(${startTime.toISOString()}) < eventEnd(${eventEnd.toISOString()}) = ${startTime < eventEnd}`);
-        console.log(`     Overlap check: endTime(${endTime.toISOString()}) > eventStart(${eventStart.toISOString()}) = ${endTime > eventStart}`);
-
         // Check for time overlap
         if (startTime < eventEnd && endTime > eventStart) {
-          console.log(`     ⚠️  CONFLICT DETECTED with "${event.title}"`);
           conflicts.push({
             id: event.id,
             title: event.title,
@@ -213,8 +158,6 @@ export class ConflictDetectionService {
             type: 'desired' as const,
             source: 'Added from event browser'
           });
-        } else {
-          console.log(`     ✅ No conflict with "${event.title}"`);
         }
       }
     }
@@ -239,22 +182,8 @@ export class ConflictDetectionService {
       }
     });
 
-    console.log(`\n📍 TRACKED EVENTS CHECK:`);
     if (!user?.trackedEvents) {
-      console.log(`   No tracked events found for user ${userId}`);
       return [];
-    }
-
-    console.log(`   Found ${user.trackedEvents.length} tracked events for user ${userId}`);
-    user.trackedEvents.slice(0, 10).forEach((event, index) => {
-      if (event.startDateTime && event.endDateTime) {
-        console.log(`   ${index + 1}. "${event.title}" (${event.startDateTime} - ${event.endDateTime})`);
-      } else {
-        console.log(`   ${index + 1}. "${event.title}" (NO TIME DATA)`);
-      }
-    });
-    if (user.trackedEvents.length > 10) {
-      console.log(`   ... and ${user.trackedEvents.length - 10} more tracked events`);
     }
 
     const conflicts: ConflictEvent[] = [];
@@ -302,13 +231,9 @@ export class ConflictDetectionService {
       select: { genConName: true }
     });
 
-    console.log(`\n💳 PURCHASED EVENTS CHECK:`);
     if (!user?.genConName) {
-      console.log(`   No genConName found for user ${userId} - skipping purchased events check`);
       return [];
     }
-
-    console.log(`   Checking purchased events for genConName: ${user.genConName}`);
 
     // Get purchased events for this user (by genConName)
     const purchasedEvents = await prisma.purchasedEvents.findMany({
@@ -323,14 +248,10 @@ export class ConflictDetectionService {
       }
     });
 
-    console.log(`   Found ${purchasedEvents.length} purchased events (including refunded)`);
-
     // Filter out refunded events
     const activePurchasedEvents = purchasedEvents.filter(
       pe => pe.refundedEvents.length === 0
     );
-
-    console.log(`   Found ${activePurchasedEvents.length} active (non-refunded) purchased events`);
 
     // Get event details for all purchased events
     const eventIds = activePurchasedEvents.map(pe => pe.eventId);
@@ -341,7 +262,6 @@ export class ConflictDetectionService {
       : eventIds;
 
     if (filteredEventIds.length === 0) {
-      console.log(`   No purchased event IDs to check after filtering`);
       return [];
     }
 
@@ -350,18 +270,6 @@ export class ConflictDetectionService {
         id: { in: filteredEventIds }
       }
     });
-
-    console.log(`   Retrieved details for ${eventsData.length} purchased events:`);
-    eventsData.slice(0, 10).forEach((event, index) => {
-      if (event.startDateTime && event.endDateTime) {
-        console.log(`   ${index + 1}. "${event.title}" (${event.startDateTime} - ${event.endDateTime})`);
-      } else {
-        console.log(`   ${index + 1}. "${event.title}" (NO TIME DATA)`);
-      }
-    });
-    if (eventsData.length > 10) {
-      console.log(`   ... and ${eventsData.length - 10} more purchased events`);
-    }
 
     const conflicts: ConflictEvent[] = [];
 

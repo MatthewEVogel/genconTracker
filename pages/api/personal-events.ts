@@ -67,16 +67,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Only check for conflicts if force flag is not set
       const { force } = req.body;
 
-      console.log(`\n➕ CREATING PERSONAL EVENT:`);
-      console.log(`   Event: "${title}" (${start.toISOString()} - ${end.toISOString()})`);
-      console.log(`   Creator: ${createdBy}`);
-      console.log(`   Attendees: ${attendees ? attendees.join(', ') : 'none'}`);
-
       if (!force) {
-        const allUserIds = [createdBy, ...(attendees || [])];
+        // Only check conflicts for actual attendees, not automatically including creator
+        const attendeeIds = attendees || [];
         const allConflicts = [];
 
-        for (const userId of allUserIds) {
+        for (const userId of attendeeIds) {
           // Use the unified conflict detection service
           const conflictResult = await ConflictDetectionService.checkConflicts({
             userId,
@@ -187,10 +183,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { force } = req.body;
 
       if (!force) {
-        const allUserIds = [existingEvent.createdBy, ...finalAttendees];
+        // Only check conflicts for actual attendees, not automatically including creator
+        const attendeeIds = finalAttendees || [];
         const allConflicts = [];
 
-        for (const userId of allUserIds) {
+        for (const userId of attendeeIds) {
           // Use the unified conflict detection service, excluding the current event being updated
           const conflictResult = await ConflictDetectionService.checkConflicts({
             userId,
