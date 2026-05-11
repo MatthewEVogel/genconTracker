@@ -134,12 +134,18 @@ export class EventsListService {
     };
 
     if (hasFilters) {
+      // Fetch all events without sorting (we'll sort after filtering)
       const allEvents = await prisma.eventsList.findMany({
-        orderBy: { startDateTime: 'asc' },
         select: eventSelect
       });
 
       let filteredEvents = this.applyFilters(allEvents, filters);
+      
+      // Sort filtered events chronologically by startDateTime
+      filteredEvents = filteredEvents.sort((a, b) => {
+        if (!a.startDateTime || !b.startDateTime) return 0;
+        return new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime();
+      });
       
       const totalEvents = filteredEvents.length;
       const paginatedEvents = filteredEvents.slice(skip, skip + limit);
