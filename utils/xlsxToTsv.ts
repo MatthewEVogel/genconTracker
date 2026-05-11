@@ -30,14 +30,16 @@ function parseDateTime(dateStr: any): string | undefined {
       // XLSX library handles this conversion
       const excelDate = XLSX.SSF.parse_date_code(dateStr);
       if (excelDate) {
-        date = new Date(
+        // Use Date.UTC to avoid timezone conversion - treat times as-is
+        // This ensures event times match what's in the Excel file
+        date = new Date(Date.UTC(
           excelDate.y,
           excelDate.m - 1, // JS months are 0-indexed
           excelDate.d,
           excelDate.H || 0,
           excelDate.M || 0,
           excelDate.S || 0
-        );
+        ));
       }
     } else {
       // Otherwise, try parsing as a string

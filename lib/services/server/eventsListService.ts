@@ -267,11 +267,10 @@ export class EventsListService {
         if (!event.startDateTime) return false;
         try {
           const eventDate = new Date(event.startDateTime);
-          const eventTime = eventDate.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
+          // Extract time in UTC to match how we store events (without timezone conversion)
+          const hours = eventDate.getUTCHours().toString().padStart(2, '0');
+          const minutes = eventDate.getUTCMinutes().toString().padStart(2, '0');
+          const eventTime = `${hours}:${minutes}`;
           return eventTime >= filters.startTime!.trim();
         } catch {
           return false;
@@ -285,11 +284,10 @@ export class EventsListService {
         if (!event.endDateTime) return false;
         try {
           const eventDate = new Date(event.endDateTime);
-          const eventTime = eventDate.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
+          // Extract time in UTC to match how we store events (without timezone conversion)
+          const hours = eventDate.getUTCHours().toString().padStart(2, '0');
+          const minutes = eventDate.getUTCMinutes().toString().padStart(2, '0');
+          const eventTime = `${hours}:${minutes}`;
           return eventTime <= filters.endTime!.trim();
         } catch {
           return false;
