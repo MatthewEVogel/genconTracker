@@ -53,6 +53,15 @@ export interface RemoveEventResponse {
 }
 
 export class ScheduleService {
+  /**
+   * Helper to convert Date or string to ISO string
+   */
+  private static toISOString(date: Date | string | null): string | null {
+    if (!date) return null;
+    if (typeof date === 'string') return date;
+    return date.toISOString();
+  }
+
   // Get schedule data for all users
   static async getScheduleData(): Promise<ScheduleResponse> {
     const users = await prisma.userList.findMany({
@@ -112,9 +121,13 @@ export class ScheduleService {
       }
     });
 
-    // Transform to maintain API compatibility
+    // Transform to maintain API compatibility - convert dates to ISO strings
     const userEvents = desiredEvents.map(de => ({
-      event: de.eventsList
+      event: {
+        ...de.eventsList,
+        startDateTime: this.toISOString(de.eventsList.startDateTime),
+        endDateTime: this.toISOString(de.eventsList.endDateTime)
+      }
     }));
 
     return { userEvents };
@@ -205,8 +218,8 @@ export class ScheduleService {
       events: user.desiredEvents.map((desiredEvent: any) => ({
         id: desiredEvent.eventsList.id,
         title: desiredEvent.eventsList.title,
-        startDateTime: desiredEvent.eventsList.startDateTime,
-        endDateTime: desiredEvent.eventsList.endDateTime,
+        startDateTime: this.toISOString(desiredEvent.eventsList.startDateTime),
+        endDateTime: this.toISOString(desiredEvent.eventsList.endDateTime),
         eventType: desiredEvent.eventsList.eventType,
         location: desiredEvent.eventsList.location,
         cost: desiredEvent.eventsList.cost,
@@ -245,8 +258,8 @@ export class ScheduleService {
           purchasedScheduleEventsMap.set(eventData.id, {
             id: eventData.id,
             title: eventData.title,
-            startDateTime: eventData.startDateTime,
-            endDateTime: eventData.endDateTime,
+            startDateTime: this.toISOString(eventData.startDateTime),
+            endDateTime: this.toISOString(eventData.endDateTime),
             eventType: eventData.eventType,
             location: eventData.location,
             cost: eventData.cost,

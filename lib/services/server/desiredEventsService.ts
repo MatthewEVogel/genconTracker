@@ -32,6 +32,15 @@ export interface AddDesiredEventResponse {
 }
 
 export class DesiredEventsService {
+  /**
+   * Helper to convert Date or string to ISO string
+   */
+  private static toISOString(date: Date | string | null): string | null {
+    if (!date) return null;
+    if (typeof date === 'string') return date;
+    return date.toISOString();
+  }
+
   // Get all desired events for a user
   static async getUserDesiredEvents(userId: string, includeCanceled?: boolean): Promise<DesiredEvent[]> {
     const whereClause: any = { userId };
@@ -63,7 +72,15 @@ export class DesiredEventsService {
       }
     });
 
-    return desiredEvents;
+    // Convert Date objects to ISO strings for the interface
+    return desiredEvents.map(de => ({
+      ...de,
+      eventsList: de.eventsList ? {
+        ...de.eventsList,
+        startDateTime: this.toISOString(de.eventsList.startDateTime),
+        endDateTime: this.toISOString(de.eventsList.endDateTime)
+      } : undefined
+    }));
   }
 
   // Get canceled events for a user (for alert system)
@@ -212,8 +229,8 @@ export class DesiredEventsService {
           conflicts.push({
             eventsListId: existingEvent.id,
             title: existingEvent.title,
-            startDateTime: existingEvent.startDateTime,
-            endDateTime: existingEvent.endDateTime
+            startDateTime: this.toISOString(existingEvent.startDateTime),
+            endDateTime: this.toISOString(existingEvent.endDateTime)
           });
         }
       }

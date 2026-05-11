@@ -24,6 +24,15 @@ export interface ConflictCheckOptions {
 
 export class ConflictDetectionService {
   /**
+   * Helper to convert Date or string to ISO string
+   */
+  private static toISOString(date: Date | string | null): string | null {
+    if (!date) return null;
+    if (typeof date === 'string') return date;
+    return date.toISOString();
+  }
+
+  /**
    * Check for conflicts across all event types for a given user and time range
    */
   static async checkConflicts(options: ConflictCheckOptions): Promise<ConflictResponse> {
@@ -153,8 +162,8 @@ export class ConflictDetectionService {
           conflicts.push({
             id: event.id,
             title: event.title,
-            startTime: event.startDateTime,
-            endTime: event.endDateTime,
+            startTime: this.toISOString(event.startDateTime)!,
+            endTime: this.toISOString(event.endDateTime)!,
             type: 'desired' as const,
             source: 'Added from event browser'
           });
@@ -203,8 +212,8 @@ export class ConflictDetectionService {
           conflicts.push({
             id: event.id,
             title: event.title,
-            startTime: event.startDateTime,
-            endTime: event.endDateTime,
+            startTime: this.toISOString(event.startDateTime)!,
+            endTime: this.toISOString(event.endDateTime)!,
             type: 'tracked' as const,
             source: 'Tracked from event browser'
           });
@@ -283,8 +292,8 @@ export class ConflictDetectionService {
           conflicts.push({
             id: event.id,
             title: event.title,
-            startTime: event.startDateTime,
-            endTime: event.endDateTime,
+            startTime: this.toISOString(event.startDateTime)!,
+            endTime: this.toISOString(event.endDateTime)!,
             type: 'purchased' as const,
             source: 'Purchased ticket'
           });
