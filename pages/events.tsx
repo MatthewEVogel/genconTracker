@@ -453,12 +453,20 @@ export default function EventsPage() {
     
     try {
       const date = new Date(dateTimeStr);
-      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-      const time = date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
+      // Use UTC to avoid timezone conversion
+      const dayOfWeek = date.toLocaleDateString('en-US', { 
+        weekday: 'long',
+        timeZone: 'UTC'
       });
+      
+      // Format time using UTC methods to display actual event time
+      const hours = date.getUTCHours();
+      const minutes = date.getUTCMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      const time = `${displayHours}:${displayMinutes} ${ampm}`;
+      
       return `${dayOfWeek} ${time}`;
     } catch {
       return dateTimeStr;

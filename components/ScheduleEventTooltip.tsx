@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ScheduleEvent } from '@/lib/services/client/scheduleService';
+import { formatDateTime as formatDateTimeUtil, formatTime, formatDate } from '@/utils/dateTimeUtils';
 
 interface ScheduleEventTooltipProps {
   event: ScheduleEvent;
@@ -19,36 +20,16 @@ export default function ScheduleEventTooltip({ event, children, isUserEvent = fa
     if (!dateTimeStr) return 'TBD';
     
     try {
-      const date = new Date(dateTimeStr);
-      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-      const time = date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-      const dateStr = date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
-      return `${dayOfWeek}, ${dateStr} at ${time}`;
+      const dayAndTime = formatDateTimeUtil(dateTimeStr);
+      const dateStr = formatDate(dateTimeStr);
+      return `${dayAndTime.split(' ')[0]}, ${dateStr} at ${dayAndTime.split(' ').slice(1).join(' ')}`;
     } catch {
       return dateTimeStr;
     }
   };
 
   const formatEndDateTime = (endDateTimeStr?: string | null) => {
-    if (!endDateTimeStr) return null;
-    
-    try {
-      const end = new Date(endDateTimeStr);
-      return end.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } catch {
-      return null;
-    }
+    return formatTime(endDateTimeStr);
   };
 
   const calculateDuration = (startDateTime?: string | null, endDateTime?: string | null) => {
