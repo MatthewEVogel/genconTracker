@@ -93,6 +93,17 @@ export async function updateEventsFromGenCon(): Promise<UpdateResult> {
   return result;
 }
 
+// Helper function to convert ISO string to Date object for Prisma
+function toDateOrNull(isoString: string | undefined | null): Date | null {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    return isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+}
+
 async function performDifferentialUpdate(
   newEvents: ParsedEventData[], 
   stats: UpdateResult['stats']
@@ -140,8 +151,8 @@ async function performDifferentialUpdate(
             shortDescription: newEvent.shortDescription || null,
             eventType: newEvent.eventType || null,
             gameSystem: newEvent.gameSystem || null,
-            startDateTime: newEvent.startDateTime || null, // Now a Date object
-            endDateTime: newEvent.endDateTime || null, // Now a Date object
+            startDateTime: toDateOrNull(newEvent.startDateTime),
+            endDateTime: toDateOrNull(newEvent.endDateTime),
             ageRequired: newEvent.ageRequired || null,
             experienceRequired: newEvent.experienceRequired || null,
             materialsRequired: newEvent.materialsRequired || null,
@@ -206,8 +217,8 @@ async function performDifferentialUpdate(
               shortDescription: newEvent.shortDescription || null,
               eventType: newEvent.eventType || null,
               gameSystem: newEvent.gameSystem || null,
-              startDateTime: newEvent.startDateTime || null,
-              endDateTime: newEvent.endDateTime || null,
+              startDateTime: toDateOrNull(newEvent.startDateTime),
+              endDateTime: toDateOrNull(newEvent.endDateTime),
               ageRequired: newEvent.ageRequired || null,
               experienceRequired: newEvent.experienceRequired || null,
               materialsRequired: newEvent.materialsRequired || null,

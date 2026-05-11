@@ -118,6 +118,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             validUpdates[key] = value === '' || value === null ? null : parseInt(value as string);
           } else if (key === 'isCanceled') {
             validUpdates[key] = Boolean(value);
+          } else if (key === 'startDateTime' || key === 'endDateTime') {
+            // Convert datetime strings to Date objects for Prisma
+            if (value === '' || value === null) {
+              validUpdates[key] = null;
+            } else {
+              const date = new Date(value as string);
+              validUpdates[key] = isNaN(date.getTime()) ? null : date;
+            }
           } else {
             validUpdates[key] = value === '' ? null : value;
           }
