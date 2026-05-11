@@ -150,8 +150,18 @@ export class DesiredEventsService {
       }
     });
 
+    // Convert dates to ISO strings
+    const transformedDesiredEvent: DesiredEvent = {
+      ...desiredEvent,
+      eventsList: desiredEvent.eventsList ? {
+        ...desiredEvent.eventsList,
+        startDateTime: this.toISOString(desiredEvent.eventsList.startDateTime),
+        endDateTime: this.toISOString(desiredEvent.eventsList.endDateTime)
+      } : undefined
+    };
+
     return {
-      desiredEvent,
+      desiredEvent: transformedDesiredEvent,
       conflicts,
       capacityWarning
     };
