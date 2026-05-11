@@ -140,8 +140,8 @@ async function performDifferentialUpdate(
             shortDescription: newEvent.shortDescription || null,
             eventType: newEvent.eventType || null,
             gameSystem: newEvent.gameSystem || null,
-            startDateTime: newEvent.startDateTime || null,
-            endDateTime: newEvent.endDateTime || null,
+            startDateTime: newEvent.startDateTime || null, // Now a Date object
+            endDateTime: newEvent.endDateTime || null, // Now a Date object
             ageRequired: newEvent.ageRequired || null,
             experienceRequired: newEvent.experienceRequired || null,
             materialsRequired: newEvent.materialsRequired || null,
@@ -156,14 +156,23 @@ async function performDifferentialUpdate(
         console.log(`Created new event: ${newEvent.id} - ${newEvent.title}`);
 
       } else {
+        // Helper function to compare dates (comparing DateTime from DB with ISO string from parsed data)
+        const datesEqual = (d1: Date | string | null, d2: string | null | undefined): boolean => {
+          if (d1 === null && (d2 === null || d2 === undefined)) return true;
+          if (d1 === null || d2 === null || d2 === undefined) return false;
+          // Convert both to ISO strings for comparison
+          const d1Iso = typeof d1 === 'string' ? d1 : d1.toISOString();
+          return d1Iso === d2;
+        };
+
         // Existing event - check if it needs updating
         const needsUpdate = (
           existingEvent.title !== newEvent.title ||
           existingEvent.shortDescription !== (newEvent.shortDescription || null) ||
           existingEvent.eventType !== (newEvent.eventType || null) ||
           existingEvent.gameSystem !== (newEvent.gameSystem || null) ||
-          existingEvent.startDateTime !== (newEvent.startDateTime || null) ||
-          existingEvent.endDateTime !== (newEvent.endDateTime || null) ||
+          !datesEqual(existingEvent.startDateTime, newEvent.startDateTime || null) ||
+          !datesEqual(existingEvent.endDateTime, newEvent.endDateTime || null) ||
           existingEvent.ageRequired !== (newEvent.ageRequired || null) ||
           existingEvent.experienceRequired !== (newEvent.experienceRequired || null) ||
           existingEvent.materialsRequired !== (newEvent.materialsRequired || null) ||
@@ -180,8 +189,8 @@ async function performDifferentialUpdate(
           if (existingEvent.shortDescription !== (newEvent.shortDescription || null)) changes.push('description');
           if (existingEvent.eventType !== (newEvent.eventType || null)) changes.push('type');
           if (existingEvent.gameSystem !== (newEvent.gameSystem || null)) changes.push('game system');
-          if (existingEvent.startDateTime !== (newEvent.startDateTime || null)) changes.push('start time');
-          if (existingEvent.endDateTime !== (newEvent.endDateTime || null)) changes.push('end time');
+          if (!datesEqual(existingEvent.startDateTime, newEvent.startDateTime || null)) changes.push('start time');
+          if (!datesEqual(existingEvent.endDateTime, newEvent.endDateTime || null)) changes.push('end time');
           if (existingEvent.ageRequired !== (newEvent.ageRequired || null)) changes.push('age requirement');
           if (existingEvent.experienceRequired !== (newEvent.experienceRequired || null)) changes.push('experience requirement');
           if (existingEvent.materialsRequired !== (newEvent.materialsRequired || null)) changes.push('materials required');

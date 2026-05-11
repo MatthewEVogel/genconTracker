@@ -6,15 +6,57 @@ export interface ParsedEventData {
   shortDescription?: string;
   eventType?: string;
   gameSystem?: string;
-  startDateTime?: string;
+  startDateTime?: string; // ISO string for Prisma DateTime
   duration?: string;
-  endDateTime?: string;
+  endDateTime?: string; // ISO string for Prisma DateTime
   ageRequired?: string;
   experienceRequired?: string;
   materialsRequired?: string;
   cost?: string;
   location?: string;
   ticketsAvailable?: number;
+}
+
+// Helper function to parse dates and convert to ISO strings for Prisma
+function parseDateTime(dateStr: any): string | undefined {
+  if (!dateStr) return undefined;
+  
+  try {
+    let date: Date | undefined;
+    
+    // Check if it's an Excel serial date (number)
+    if (typeof dateStr === 'number') {
+      // Excel serial dates are days since 1900-01-01 (with some quirks)
+      // XLSX library handles this conversion
+      const excelDate = XLSX.SSF.parse_date_code(dateStr);
+      if (excelDate) {
+        date = new Date(
+          excelDate.y,
+          excelDate.m - 1, // JS months are 0-indexed
+          excelDate.d,
+          excelDate.H || 0,
+          excelDate.M || 0,
+          excelDate.S || 0
+        );
+      }
+    } else {
+      // Otherwise, try parsing as a string
+      const dateString = String(dateStr).trim();
+      if (dateString) {
+        date = new Date(dateString);
+      }
+    }
+    
+    // Check if date is valid and return ISO string
+    if (date && !isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+    
+    return undefined;
+  } catch (error) {
+    console.warn(`Failed to parse date: ${dateStr}`, error);
+    return undefined;
+  }
 }
 
 export function parseXlsxToEvents(buffer: Buffer): ParsedEventData[] {
@@ -51,9 +93,9 @@ export function parseXlsxToEvents(buffer: Buffer): ParsedEventData[] {
           shortDescription: row[3] ? String(row[3]).trim() : undefined, // Short Description
           eventType: row[5] ? String(row[5]).trim() : undefined, // Event Type
           gameSystem: row[6] ? String(row[6]).trim() : undefined, // Game System
-          startDateTime: row[14] ? String(row[14]).trim() : undefined, // Start Date & Time
+          startDateTime: parseDateTime(row[14]), // Start Date & Time
           duration: row[15] ? String(row[15]).trim() : undefined, // Duration
-          endDateTime: row[16] ? String(row[16]).trim() : undefined, // End Date & Time
+          endDateTime: parseDateTime(row[16]), // End Date & Time
           ageRequired: row[10] ? String(row[10]).trim() : undefined, // Age Required
           experienceRequired: row[11] ? String(row[11]).trim() : undefined, // Experience Required
           materialsRequired: row[12] ? String(row[12]).trim() : undefined, // Materials Required

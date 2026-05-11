@@ -8,10 +8,10 @@ const prisma = new PrismaClient();
 function parseDateTime(dateStr) {
   if (!dateStr || dateStr.trim() === '') return null;
   try {
-    // Parse date like "07/31/2025 09:00 AM" to ISO format
+    // Parse date like "07/31/2025 09:00 AM" and convert to ISO string for Prisma
     const date = new Date(dateStr.trim());
     if (isNaN(date.getTime())) return null;
-    return date.toISOString();
+    return date.toISOString(); // Return ISO string for Prisma DateTime
   } catch (error) {
     return null;
   }

@@ -41,8 +41,8 @@ model EventsList {
   shortDescription   String?
   eventType          String?
   gameSystem         String?
-  startDateTime      String?
-  endDateTime        String?
+  startDateTime      DateTime?
+  endDateTime        DateTime?
   ageRequired        String?
   experienceRequired String?
   materialsRequired  String?
