@@ -101,12 +101,12 @@ const parseDateTime = (dateTimeStr: string | null) => {
 };
 
 const getEventPosition = (startTime: Date, endTime: Date, selectedDay: string, isMobile: boolean = false) => {
-  let displayStartHour = startTime.getHours() + startTime.getMinutes() / 60;
-  let displayEndHour = endTime.getHours() + endTime.getMinutes() / 60;
+  let displayStartHour = startTime.getUTCHours() + startTime.getUTCMinutes() / 60;
+  let displayEndHour = endTime.getUTCHours() + endTime.getUTCMinutes() / 60;
   
   // Get the day of week for both start and end times
-  const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
-  const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long' });
+  const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+  const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
   
   // Handle multi-day events
   if (eventStartDayOfWeek !== selectedDay && eventEndDayOfWeek === selectedDay) {
@@ -379,8 +379,8 @@ export default function Timeline({
       if (!startTime || !endTime) return false;
       
       // Get the day of week for the event start time
-      const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
-      const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long' });
+      const eventStartDayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+      const eventEndDayOfWeek = endTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
       
       // Include event if it starts on selected day OR ends on selected day OR spans across the selected day
       if (eventStartDayOfWeek === selectedDay || eventEndDayOfWeek === selectedDay) {
@@ -581,11 +581,14 @@ export default function Timeline({
                               )}
                             </div>
                             <div className="truncate opacity-75">
-                              {startTime.toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}
+                              {(() => {
+                                const hours = startTime.getUTCHours();
+                                const minutes = startTime.getUTCMinutes();
+                                const ampm = hours >= 12 ? 'PM' : 'AM';
+                                const displayHours = hours % 12 || 12;
+                                const displayMinutes = minutes.toString().padStart(2, '0');
+                                return `${displayHours}:${displayMinutes} ${ampm}`;
+                              })()}
                             </div>
                           </div>
                         </ScheduleEventTooltip>
@@ -710,11 +713,14 @@ export default function Timeline({
                                 )}
                               </div>
                               <div className="truncate opacity-75">
-                                {startTime.toLocaleTimeString('en-US', { 
-                                  hour: 'numeric', 
-                                  minute: '2-digit',
-                                  hour12: true 
-                                })}
+                                {(() => {
+                                  const hours = startTime.getUTCHours();
+                                  const minutes = startTime.getUTCMinutes();
+                                  const ampm = hours >= 12 ? 'PM' : 'AM';
+                                  const displayHours = hours % 12 || 12;
+                                  const displayMinutes = minutes.toString().padStart(2, '0');
+                                  return `${displayHours}:${displayMinutes} ${ampm}`;
+                                })()}
                               </div>
                             </div>
                           </ScheduleEventTooltip>
@@ -762,12 +768,22 @@ export default function Timeline({
               <div>
                 <span className="font-medium text-gray-700">Time: </span>
                 <span className="text-gray-600">
-                  {parseDateTime(selectedEvent.startDateTime)?.toLocaleString()} - {' '}
-                  {parseDateTime(selectedEvent.endDateTime)?.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
+                  {(() => {
+                    const start = parseDateTime(selectedEvent.startDateTime);
+                    const end = parseDateTime(selectedEvent.endDateTime);
+                    if (!start || !end) return 'TBD';
+                    
+                    const formatUTCTime = (date: Date) => {
+                      const hours = date.getUTCHours();
+                      const minutes = date.getUTCMinutes();
+                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                      const displayHours = hours % 12 || 12;
+                      const displayMinutes = minutes.toString().padStart(2, '0');
+                      return `${displayHours}:${displayMinutes} ${ampm}`;
+                    };
+                    
+                    return `${formatUTCTime(start)} - ${formatUTCTime(end)}`;
+                  })()}
                 </span>
               </div>
               

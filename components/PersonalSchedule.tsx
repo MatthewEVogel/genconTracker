@@ -62,19 +62,20 @@ const parseDateTime = (dateTimeStr: string | null) => {
 };
 
 const formatDate = (date: Date) => {
-  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-  const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  const dayNum = date.getDate();
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toUpperCase();
+  const month = date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+  const dayNum = date.getUTCDate();
   return `${dayName} — ${month} ${dayNum}`;
 };
 
 const formatTime = (startTime: Date, endTime: Date) => {
   const formatSingleTime = (time: Date) => {
-    return time.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    const hours = time.getUTCHours();
+    const minutes = time.getUTCMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    return `${displayHours}:${displayMinutes} ${ampm}`;
   };
 
   // Check if it's an all-day event (starts at midnight and ends at midnight next day, or very long duration)
@@ -447,12 +448,12 @@ export default function PersonalSchedule({
               <div>
                 <span className="font-medium text-gray-700">Time: </span>
                 <span className="text-gray-600">
-                  {parseDateTime(selectedEvent.startDateTime)?.toLocaleString()} - {' '}
-                  {parseDateTime(selectedEvent.endDateTime)?.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
+                  {(() => {
+                    const start = parseDateTime(selectedEvent.startDateTime);
+                    const end = parseDateTime(selectedEvent.endDateTime);
+                    if (!start || !end) return 'TBD';
+                    return formatTime(start, end).split('\n').join(' - ');
+                  })()}
                 </span>
               </div>
               
