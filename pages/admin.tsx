@@ -4,6 +4,7 @@ import useUserStore from "@/store/useUserStore";
 import Navigation from "@/components/Navigation";
 import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 import EventEditModal from "@/components/EventEditModal";
+import { formatDateTime, formatDate } from "@/utils/dateTimeUtils";
 
 interface AdminUser {
   id: string;
@@ -862,10 +863,10 @@ export default function AdminPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {event.startDateTime ? new Date(event.startDateTime).toLocaleDateString() : 'TBD'}
+                            {event.startDateTime ? formatDate(event.startDateTime) : 'TBD'}
                           </div>
                           <div className="text-xs text-gray-600">
-                            {event.startDateTime ? new Date(event.startDateTime).toLocaleTimeString() : ''}
+                            {event.startDateTime ? formatDateTime(event.startDateTime) : ''}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
