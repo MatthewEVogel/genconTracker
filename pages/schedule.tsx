@@ -378,19 +378,23 @@ export default function SchedulePage() {
                     This event conflicts with the following events in your schedule:
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                    {conflictModal.conflicts.map((conflict, index) => (
-                      <li key={index}>
-                        {conflict.title} ({new Date(conflict.startDateTime).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true
-                        })} - {new Date(conflict.endDateTime).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true
-                        })})
-                      </li>
-                    ))}
+                    {conflictModal.conflicts.map((conflict, index) => {
+                      const formatUTCTime = (dateStr: string) => {
+                        const date = new Date(dateStr);
+                        const hours = date.getUTCHours();
+                        const minutes = date.getUTCMinutes();
+                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                        const displayHours = hours % 12 || 12;
+                        const displayMinutes = minutes.toString().padStart(2, '0');
+                        return `${displayHours}:${displayMinutes} ${ampm}`;
+                      };
+                      
+                      return (
+                        <li key={index}>
+                          {conflict.title} ({formatUTCTime(conflict.startDateTime)} - {formatUTCTime(conflict.endDateTime)})
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

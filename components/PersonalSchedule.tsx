@@ -193,7 +193,7 @@ export default function PersonalSchedule({
       const startTime = parseDateTime(event.startDateTime);
       if (!startTime) return;
 
-      const dayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+      const dayOfWeek = startTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
       if (grouped[dayOfWeek]) {
         grouped[dayOfWeek].push(event);
       }
