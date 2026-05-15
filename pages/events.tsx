@@ -204,8 +204,12 @@ export default function EventsPage() {
 
   const fetchAllUsers = async () => {
     try {
-      const data = await UserListService.getAllUsers();
-      const users = data.userLists.map((u) => ({
+      const response = await fetch('/api/user-list');
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      const data = await response.json();
+      const users = data.users.map((u: any) => ({
         id: u.id,
         firstName: u.firstName,
         lastName: u.lastName,
