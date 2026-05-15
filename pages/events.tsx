@@ -367,7 +367,7 @@ export default function EventsPage() {
   };
 
   const handleConfirmAddEventForUser = async () => {
-    if (!selectedUserId || !personSelectorModal.eventId) return;
+    if (!selectedUserId || !personSelectorModal.eventId || !user) return;
 
     try {
       const data = await ScheduleService.addUserEvent(selectedUserId, personSelectorModal.eventId);
