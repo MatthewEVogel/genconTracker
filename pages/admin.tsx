@@ -62,6 +62,25 @@ interface TransactionData {
   totalRefunds: number;
 }
 
+interface OrphanedPurchase {
+  id: string;
+  eventId: string;
+  recipient: string;
+  purchaser: string;
+  createdAt: Date;
+  eventTitle?: string;
+}
+
+interface OrphanedPurchasesData {
+  orphanedPurchases: OrphanedPurchase[];
+  summary: {
+    total: number;
+    uniqueRecipients: number;
+    uniqueEvents: number;
+    recipientNames: string[];
+  };
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
@@ -95,6 +114,12 @@ export default function AdminPage() {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventActionLoading, setEventActionLoading] = useState(false);
+
+  // Orphaned purchases state
+  const [orphanedData, setOrphanedData] = useState<OrphanedPurchasesData | null>(null);
+  const [orphanedLoading, setOrphanedLoading] = useState(false);
+  const [orphanedDeleteLoading, setOrphanedDeleteLoading] = useState<string | null>(null);
+  const [showOrphaned, setShowOrphaned] = useState(false);
 
   useEffect(() => {
     // Redirect to login if no user is logged in
@@ -429,6 +454,116 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setTransactionDeleteLoading(null);
+    }
+  };
+
+  const fetchOrphanedPurchases = async () => {
+    if (!user) return;
+    
+    try {
+      setOrphanedLoading(true);
+      setError("");
+      const response = await fetch(`/api/admin/orphaned-purchases?adminUserId=${user.id}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch orphaned purchases');
+      }
+      
+      setOrphanedData(data);
+    } catch (err) {
+      console.error('Error fetching orphaned purchases:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setOrphanedLoading(false);
+    }
+  };
+
+  const handleDeleteOrphanedPurchase = async (purchase: OrphanedPurchase) => {
+    if (!user) return;
+    
+    const confirmMessage = `Delete this orphaned purchase?\n\nRecipient: ${purchase.recipient}\nEvent: ${purchase.eventTitle}\nPurchaser: ${purchase.purchaser}\n\nThis will remove the ghost user "${purchase.recipient} (👻)" from the schedule.`;
+    
+    const confirmed = await customConfirm(confirmMessage, 'Delete Orphaned Purchase');
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setOrphanedDeleteLoading(purchase.id);
+      setError("");
+      
+      const response = await fetch('/api/admin/orphaned-purchases', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          purchaseIds: [purchase.id]
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete orphaned purchase');
+      }
+      
+      // Refresh orphaned purchases data
+      await fetchOrphanedPurchases();
+      
+      await customAlert(data.message, 'Success');
+    } catch (err) {
+      console.error('Error deleting orphaned purchase:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setOrphanedDeleteLoading(null);
+    }
+  };
+
+  const handleDeleteAllOrphanedPurchases = async () => {
+    if (!user || !orphanedData) return;
+    
+    const recipientList = orphanedData.summary.recipientNames.join('\n• ');
+    const confirmMessage = `Delete ALL ${orphanedData.summary.total} orphaned purchase(s)?\n\nThis will remove these ghost users from the schedule:\n\n• ${recipientList}\n\nThis action cannot be undone.`;
+    
+    const confirmed = await customConfirm(confirmMessage, 'Delete All Orphaned Purchases');
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setOrphanedLoading(true);
+      setError("");
+      
+      const allIds = orphanedData.orphanedPurchases.map(p => p.id);
+      
+      const response = await fetch('/api/admin/orphaned-purchases', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          purchaseIds: allIds
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete orphaned purchases');
+      }
+      
+      // Clear the data and refresh
+      setOrphanedData(null);
+      await fetchOrphanedPurchases();
+      
+      await customAlert(data.message, 'Success');
+    } catch (err) {
+      console.error('Error deleting orphaned purchases:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setOrphanedLoading(false);
     }
   };
 
@@ -1067,6 +1202,179 @@ export default function AdminPage() {
             <div className="text-center py-12">
               <div className="text-gray-500 text-lg">No pending user approvals.</div>
               <div className="text-gray-400 text-sm mt-2">All manual account requests have been processed.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Orphaned Purchases Cleanup Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">👻 Orphaned Purchases Cleanup</h2>
+            <div className="space-x-3">
+              <button
+                onClick={() => setShowOrphaned(!showOrphaned)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                {showOrphaned ? 'Hide Orphaned Purchases' : 'Show Orphaned Purchases'}
+              </button>
+              {showOrphaned && (
+                <button
+                  onClick={fetchOrphanedPurchases}
+                  disabled={orphanedLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {orphanedLoading ? 'Loading...' : 'Load Orphaned Purchases'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600 mb-4">
+            <p className="mb-2">
+              <strong>Orphaned purchases</strong> are ticket records where the recipient name doesn't match any user's GenCon name in the system.
+              These appear as "ghost users" with a 👻 icon on the schedule page.
+            </p>
+            <p className="text-xs text-gray-500">
+              Common causes: Test data, typos in names, or purchases made before user registration. Cleaning these will remove ghost users from the schedule.
+            </p>
+          </div>
+
+          {orphanedData && (
+            <div className="mb-6">
+              {/* Warning Banner */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <span className="text-2xl mr-3">⚠️</span>
+                  <div className="flex-1">
+                    <div className="font-medium text-yellow-800 mb-1">Found Orphaned Purchases</div>
+                    <div className="text-sm text-yellow-700">
+                      These {orphanedData.summary.total} purchase(s) don't match any registered user's GenCon name.
+                      Deleting them will remove the ghost users from the schedule page.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                <div className="text-center">
+                  <div className="font-semibold text-orange-600">{orphanedData.summary.total}</div>
+                  <div className="text-gray-600">Total Orphaned</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-purple-600">{orphanedData.summary.uniqueRecipients}</div>
+                  <div className="text-gray-600">Ghost Users</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-blue-600">{orphanedData.summary.uniqueEvents}</div>
+                  <div className="text-gray-600">Affected Events</div>
+                </div>
+                <div className="text-center">
+                  <button
+                    onClick={handleDeleteAllOrphanedPurchases}
+                    disabled={orphanedLoading || orphanedData.summary.total === 0}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-50 text-sm font-semibold"
+                  >
+                    {orphanedLoading ? 'Deleting...' : 'Delete All'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Ghost User Names */}
+              {orphanedData.summary.recipientNames.length > 0 && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Ghost Users Found:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {orphanedData.summary.recipientNames.map((name, index) => (
+                      <span key={index} className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                        👻 {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showOrphaned && orphanedLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-lg text-gray-600">Loading orphaned purchases...</div>
+            </div>
+          ) : showOrphaned && orphanedData && orphanedData.orphanedPurchases.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ghost User (Recipient)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Purchaser
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date Added
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {orphanedData.orphanedPurchases.map((purchase) => (
+                    <tr key={purchase.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-full bg-orange-100 text-orange-800">
+                          👻 {purchase.recipient}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-mono text-gray-900">{purchase.eventId}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 max-w-xs truncate" title={purchase.eventTitle}>
+                          {purchase.eventTitle}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{purchase.purchaser}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(purchase.createdAt).toLocaleDateString()} {new Date(purchase.createdAt).toLocaleTimeString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleDeleteOrphanedPurchase(purchase)}
+                          disabled={orphanedDeleteLoading === purchase.id}
+                          className="text-red-600 hover:text-red-900 transition disabled:opacity-50"
+                        >
+                          {orphanedDeleteLoading === purchase.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : showOrphaned && orphanedData && orphanedData.orphanedPurchases.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">✨</div>
+              <div className="text-gray-500 text-lg">No orphaned purchases found!</div>
+              <div className="text-gray-400 text-sm mt-2">
+                All purchase recipient names match registered users. No ghost users on the schedule.
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg">Click "Load Orphaned Purchases" to scan for ghost users.</div>
+              <div className="text-gray-400 text-sm mt-2">This will check for purchases that don't match any user's GenCon name.</div>
             </div>
           )}
         </div>
