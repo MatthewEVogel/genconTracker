@@ -480,12 +480,18 @@ export default function AdminPage() {
   };
 
   const handleDeleteOrphanedPurchase = async (purchase: OrphanedPurchase) => {
-    if (!user) return;
+    if (!user) {
+      console.error('No user found');
+      return;
+    }
+    
+    console.log('Attempting to delete orphaned purchase:', purchase.id);
     
     const confirmMessage = `Delete this orphaned purchase?\n\nRecipient: ${purchase.recipient}\nEvent: ${purchase.eventTitle}\nPurchaser: ${purchase.purchaser}\n\nThis will remove the ghost user "${purchase.recipient} (👻)" from the schedule.`;
     
     const confirmed = await customConfirm(confirmMessage, 'Delete Orphaned Purchase');
     if (!confirmed) {
+      console.log('User cancelled delete');
       return;
     }
     
@@ -493,7 +499,9 @@ export default function AdminPage() {
       setOrphanedDeleteLoading(purchase.id);
       setError("");
       
-      const response = await fetch('/api/admin/orphaned-purchases', {
+      console.log('Making DELETE request for purchase:', purchase.id);
+      
+      const response = await fetch(`/api/admin/orphaned-purchases?adminUserId=${user.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -503,32 +511,54 @@ export default function AdminPage() {
         }),
       });
       
-      const data = await response.json();
+      console.log('Response status:', response.status);
       
+      // Check response status before parsing
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete orphaned purchase');
+        const errorText = await response.text();
+        console.error('Delete failed with status:', response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Failed to delete orphaned purchase (${response.status})`);
+        }
+        throw new Error(errorData.error || 'Failed to delete orphaned purchase');
       }
       
+      const data = await response.json();
+      console.log('Delete successful:', data);
+      
       // Refresh orphaned purchases data
+      console.log('Refreshing orphaned purchases list...');
       await fetchOrphanedPurchases();
       
-      await customAlert(data.message, 'Success');
+      await customAlert(data.message || 'Successfully deleted orphaned purchase', 'Success');
     } catch (err) {
       console.error('Error deleting orphaned purchase:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while deleting';
+      setError(errorMessage);
+      await customAlert(errorMessage, 'Error');
     } finally {
       setOrphanedDeleteLoading(null);
+      console.log('Delete operation completed');
     }
   };
 
   const handleDeleteAllOrphanedPurchases = async () => {
-    if (!user || !orphanedData) return;
+    if (!user || !orphanedData) {
+      console.error('No user or orphaned data found');
+      return;
+    }
+    
+    console.log('Attempting to delete all orphaned purchases:', orphanedData.summary.total);
     
     const recipientList = orphanedData.summary.recipientNames.join('\n• ');
     const confirmMessage = `Delete ALL ${orphanedData.summary.total} orphaned purchase(s)?\n\nThis will remove these ghost users from the schedule:\n\n• ${recipientList}\n\nThis action cannot be undone.`;
     
     const confirmed = await customConfirm(confirmMessage, 'Delete All Orphaned Purchases');
     if (!confirmed) {
+      console.log('User cancelled delete all');
       return;
     }
     
@@ -537,8 +567,9 @@ export default function AdminPage() {
       setError("");
       
       const allIds = orphanedData.orphanedPurchases.map(p => p.id);
+      console.log('Deleting purchase IDs:', allIds);
       
-      const response = await fetch('/api/admin/orphaned-purchases', {
+      const response = await fetch(`/api/admin/orphaned-purchases?adminUserId=${user.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -548,22 +579,38 @@ export default function AdminPage() {
         }),
       });
       
-      const data = await response.json();
+      console.log('Response status:', response.status);
       
+      // Check response status before parsing
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete orphaned purchases');
+        const errorText = await response.text();
+        console.error('Delete all failed with status:', response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`Failed to delete orphaned purchases (${response.status})`);
+        }
+        throw new Error(errorData.error || 'Failed to delete orphaned purchases');
       }
+      
+      const data = await response.json();
+      console.log('Delete all successful:', data);
       
       // Clear the data and refresh
       setOrphanedData(null);
+      console.log('Refreshing orphaned purchases list...');
       await fetchOrphanedPurchases();
       
-      await customAlert(data.message, 'Success');
+      await customAlert(data.message || `Successfully deleted ${allIds.length} orphaned purchase(s)`, 'Success');
     } catch (err) {
       console.error('Error deleting orphaned purchases:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while deleting';
+      setError(errorMessage);
+      await customAlert(errorMessage, 'Error');
     } finally {
       setOrphanedLoading(false);
+      console.log('Delete all operation completed');
     }
   };
 

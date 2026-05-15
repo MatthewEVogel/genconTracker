@@ -99,11 +99,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
+      console.log('[Orphaned Purchases API] DELETE request received');
+      console.log('[Orphaned Purchases API] Admin user:', adminUserId);
+      
       const { purchaseIds } = req.body;
+      console.log('[Orphaned Purchases API] Purchase IDs to delete:', purchaseIds);
 
       if (!purchaseIds || !Array.isArray(purchaseIds) || purchaseIds.length === 0) {
+        console.error('[Orphaned Purchases API] Invalid purchaseIds:', purchaseIds);
         return res.status(400).json({ error: 'Invalid request: purchaseIds array required' });
       }
+
+      console.log(`[Orphaned Purchases API] Attempting to delete ${purchaseIds.length} purchase(s)...`);
 
       // Delete the orphaned purchases (this will cascade delete any associated refunds)
       const deleteResult = await prisma.purchasedEvents.deleteMany({
@@ -112,12 +119,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
+      console.log(`[Orphaned Purchases API] Successfully deleted ${deleteResult.count} purchase(s)`);
+
       return res.status(200).json({
         message: `Successfully deleted ${deleteResult.count} orphaned purchase(s)`,
         deletedCount: deleteResult.count
       });
     } catch (error) {
-      console.error('Error deleting orphaned purchases:', error);
+      console.error('[Orphaned Purchases API] Error deleting orphaned purchases:', error);
       return res.status(500).json({ 
         error: 'Failed to delete orphaned purchases',
         details: error instanceof Error ? error.message : 'Unknown error'
