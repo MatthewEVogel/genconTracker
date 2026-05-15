@@ -213,14 +213,21 @@ export default function EventsPage() {
       return;
     }
     
-    // Open event detail modal
+    // Open event detail modal and set default recipient to current user
     setSelectedEvent(event);
     setIsEventDetailModalOpen(true);
+    if (user) {
+      setSelectedUserId(user.id);
+    }
   };
 
   const handleCloseEventDetailModal = () => {
     setSelectedEvent(null);
     setIsEventDetailModalOpen(false);
+    // Reset selected user to current user
+    if (user) {
+      setSelectedUserId(user.id);
+    }
   };
 
   const handleEditEvent = (event: Event) => {
@@ -356,53 +363,37 @@ export default function EventsPage() {
   const handleAddEvent = async (eventId: string) => {
     if (!user) return;
 
-    // Open person selector modal
-    const eventTitle = events.find(e => e.id === eventId)?.title || 'Unknown Event';
-    setSelectedUserId(user.id); // Default to current user
-    setPersonSelectorModal({
-      show: true,
-      eventId,
-      eventTitle
-    });
-  };
-
-  const handleConfirmAddEventForUser = async () => {
-    if (!selectedUserId || !personSelectorModal.eventId || !user) return;
+    // Use the selected user ID or default to current user
+    const targetUserId = selectedUserId || user.id;
 
     try {
-      const data = await ScheduleService.addUserEvent(selectedUserId, personSelectorModal.eventId);
+      const data = await ScheduleService.addUserEvent(targetUserId, eventId);
 
       // Check for conflicts or capacity warnings
       if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
+        const eventTitle = events.find(e => e.id === eventId)?.title || 'Unknown Event';
         setConflictModal({
           show: true,
-          eventId: personSelectorModal.eventId,
-          eventTitle: personSelectorModal.eventTitle,
+          eventId,
+          eventTitle,
           conflicts: data.conflicts || [],
           capacityWarning: data.capacityWarning || false
         });
-        setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
         return;
       }
 
-      // Success - refresh user events and close modal
+      // Success - refresh user events
       await fetchUserEvents();
-      setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
       
       // Show success message with user name if different from current user
-      const selectedUser = allUsers.find(u => u.id === selectedUserId);
-      const message = selectedUserId === user.id 
+      const selectedUser = allUsers.find(u => u.id === targetUserId);
+      const message = targetUserId === user.id 
         ? 'Event added to your schedule!'
         : `Event added to ${selectedUser?.firstName}'s schedule!`;
       await customAlert(message, 'Success');
     } catch (err) {
       await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
     }
-  };
-
-  const handleCancelPersonSelector = () => {
-    setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
-    setSelectedUserId('');
   };
 
   const handleConfirmAddEvent = async () => {
@@ -1077,62 +1068,6 @@ export default function EventsPage() {
         )}
       </main>
 
-      {/* Person Selector Modal */}
-      {personSelectorModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Add Event to Schedule
-              </h3>
-              
-              <p className="text-gray-700 mb-4">
-                Who is this event for?
-              </p>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Person
-                </label>
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Choose a person...</option>
-                  {allUsers.map((userOption) => (
-                    <option key={userOption.id} value={userOption.id}>
-                      {userOption.firstName} {userOption.lastName} ({userOption.genConName})
-                      {user && userOption.id === user.id ? ' - You' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                <strong>Event:</strong> {personSelectorModal.eventTitle}
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={handleConfirmAddEventForUser}
-                disabled={!selectedUserId}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add Event
-              </button>
-              <button
-                onClick={handleCancelPersonSelector}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Conflict Warning Modal */}
       {conflictModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1335,6 +1270,27 @@ export default function EventsPage() {
 
             {/* Action Buttons */}
             <div className="space-y-3">
+              {/* Event Recipient Dropdown */}
+              {!userEventIds.includes(selectedEvent.id) && (
+                <div className="pb-3 border-b border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Event Recipient
+                  </label>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    {allUsers.map((userOption) => (
+                      <option key={userOption.id} value={userOption.id}>
+                        {userOption.firstName} {userOption.lastName} ({userOption.genConName})
+                        {user && userOption.id === user.id ? ' - You' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Add/Remove Event Button */}
               {userEventIds.includes(selectedEvent.id) ? (
                 <button
