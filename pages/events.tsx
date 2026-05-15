@@ -115,11 +115,21 @@ export default function EventsPage() {
     }
 
     // Fetch user events, filter options, and all users
-    fetchUserEvents();
-    fetchFilterOptions();
-    checkAdminStatus();
-    fetchAllUsers();
+    const init = async () => {
+      await fetchAllUsers(); // Fetch users first
+      await fetchUserEvents();
+      await fetchFilterOptions();
+      await checkAdminStatus();
+    };
+    init();
   }, [user, router]);
+
+  // Set default selected user when allUsers loads
+  useEffect(() => {
+    if (user && allUsers.length > 0 && !selectedUserId) {
+      setSelectedUserId(user.id);
+    }
+  }, [allUsers, user]);
 
   useEffect(() => {
     // Fetch events when any filter changes
@@ -948,6 +958,28 @@ export default function EventsPage() {
 
                       {/* Add/Remove Event Button and Tracking Button */}
                       <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                        {/* Event Recipient Dropdown - Only show when not already in schedule */}
+                        {!isUserEvent && allUsers.length > 0 && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Event Recipient
+                            </label>
+                            <select
+                              value={selectedUserId}
+                              onChange={(e) => setSelectedUserId(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              {allUsers.map((userOption) => (
+                                <option key={userOption.id} value={userOption.id}>
+                                  {userOption.firstName} {userOption.lastName} ({userOption.genConName})
+                                  {user && userOption.id === user.id ? ' - You' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
                         {isUserEvent ? (
                           <button
                             onClick={() => handleRemoveEvent(event.id)}
