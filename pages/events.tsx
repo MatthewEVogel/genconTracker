@@ -7,6 +7,7 @@ import { ScheduleService } from "@/lib/services/client/scheduleService";
 import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 import EventTooltip from "@/components/EventTooltip";
 import EventEditModal from "@/components/EventEditModal";
+import { UserListService } from "@/lib/services/client/userListService";
 
 // Custom hook to detect screen size
 const useIsMobile = () => {
@@ -31,6 +32,19 @@ interface ConflictModal {
   eventTitle: string;
   conflicts: any[];
   capacityWarning: boolean;
+}
+
+interface PersonSelectorModal {
+  show: boolean;
+  eventId: string;
+  eventTitle: string;
+}
+
+interface UserOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  genConName: string;
 }
 
 interface FilterOptions {
@@ -71,6 +85,15 @@ export default function EventsPage() {
     capacityWarning: false
   });
 
+  // Person selector for adding events
+  const [personSelectorModal, setPersonSelectorModal] = useState<PersonSelectorModal>({
+    show: false,
+    eventId: '',
+    eventTitle: ''
+  });
+  const [allUsers, setAllUsers] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+
   // Admin functionality
   const [isAdmin, setIsAdmin] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -91,10 +114,11 @@ export default function EventsPage() {
       return;
     }
 
-    // Fetch user events and filter options
+    // Fetch user events, filter options, and all users
     fetchUserEvents();
     fetchFilterOptions();
     checkAdminStatus();
+    fetchAllUsers();
   }, [user, router]);
 
   useEffect(() => {
@@ -165,6 +189,21 @@ export default function EventsPage() {
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const data = await UserListService.getAllUsers();
+      const users = data.userLists.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        genConName: u.genConName
+      }));
+      setAllUsers(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -317,30 +356,53 @@ export default function EventsPage() {
   const handleAddEvent = async (eventId: string) => {
     if (!user) return;
 
+    // Open person selector modal
+    const eventTitle = events.find(e => e.id === eventId)?.title || 'Unknown Event';
+    setSelectedUserId(user.id); // Default to current user
+    setPersonSelectorModal({
+      show: true,
+      eventId,
+      eventTitle
+    });
+  };
+
+  const handleConfirmAddEventForUser = async () => {
+    if (!selectedUserId || !personSelectorModal.eventId) return;
+
     try {
-      const data = await ScheduleService.addUserEvent(user.id, eventId);
+      const data = await ScheduleService.addUserEvent(selectedUserId, personSelectorModal.eventId);
 
       // Check for conflicts or capacity warnings
       if ((data.conflicts && data.conflicts.length > 0) || data.capacityWarning) {
-        const eventTitle = events.find(e => e.id === eventId)?.title || 'Unknown Event';
         setConflictModal({
           show: true,
-          eventId,
-          eventTitle,
+          eventId: personSelectorModal.eventId,
+          eventTitle: personSelectorModal.eventTitle,
           conflicts: data.conflicts || [],
           capacityWarning: data.capacityWarning || false
         });
+        setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
         return;
       }
 
-      // Success - refresh user events
+      // Success - refresh user events and close modal
       await fetchUserEvents();
+      setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
       
-      // Show success message
-      await customAlert('Event added to your schedule!', 'Success');
+      // Show success message with user name if different from current user
+      const selectedUser = allUsers.find(u => u.id === selectedUserId);
+      const message = selectedUserId === user.id 
+        ? 'Event added to your schedule!'
+        : `Event added to ${selectedUser?.firstName}'s schedule!`;
+      await customAlert(message, 'Success');
     } catch (err) {
       await customAlert(err instanceof Error ? err.message : 'An error occurred', 'Error');
     }
+  };
+
+  const handleCancelPersonSelector = () => {
+    setPersonSelectorModal({ show: false, eventId: '', eventTitle: '' });
+    setSelectedUserId('');
   };
 
   const handleConfirmAddEvent = async () => {
@@ -1014,6 +1076,62 @@ export default function EventsPage() {
           </div>
         )}
       </main>
+
+      {/* Person Selector Modal */}
+      {personSelectorModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Add Event to Schedule
+              </h3>
+              
+              <p className="text-gray-700 mb-4">
+                Who is this event for?
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Person
+                </label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Choose a person...</option>
+                  {allUsers.map((userOption) => (
+                    <option key={userOption.id} value={userOption.id}>
+                      {userOption.firstName} {userOption.lastName} ({userOption.genConName})
+                      {user && userOption.id === user.id ? ' - You' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
+                <strong>Event:</strong> {personSelectorModal.eventTitle}
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleConfirmAddEventForUser}
+                disabled={!selectedUserId}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Event
+              </button>
+              <button
+                onClick={handleCancelPersonSelector}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conflict Warning Modal */}
       {conflictModal.show && (
