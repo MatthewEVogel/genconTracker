@@ -16,8 +16,10 @@ export default async function handler(
       }
       // Get all users
       const data = await UserListService.getAllUsers();
+      // Filter to only return approved users for the dropdown
+      const approvedUsers = data.userLists.filter(user => user.approved);
       // Transform the response to match the expected format
-      return res.status(200).json({ users: data.userLists });
+      return res.status(200).json({ users: approvedUsers });
     }
 
     if (req.method === 'POST') {
