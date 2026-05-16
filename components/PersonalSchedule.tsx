@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ScheduleEvent, ScheduleService, ScheduleUser } from '@/lib/services/client/scheduleService';
-import { EventService } from '@/lib/services/client/eventService';
+import { EventService, Event } from '@/lib/services/client/eventService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
 import { PersonalEventModal } from '@/components/PersonalEventModal';
 import { personalEventService, PersonalEvent } from '@/lib/services/client/personalEventService';
@@ -134,11 +134,36 @@ export default function PersonalSchedule({
     eventId: string;
     conflicts: any[];
   }>({ eventId: '', conflicts: [] });
+  const [fullEventDetails, setFullEventDetails] = useState<Event | null>(null);
+  const [loadingEventDetails, setLoadingEventDetails] = useState(false);
 
   // Clear selected event when day changes
   useEffect(() => {
     setSelectedEvent(null);
+    setFullEventDetails(null);
   }, [selectedDay]);
+
+  // Fetch full event details when a GenCon event is selected
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      if (selectedEvent && !selectedEvent.isPersonalEvent) {
+        setLoadingEventDetails(true);
+        try {
+          const eventDetails = await EventService.getEventById(selectedEvent.id);
+          setFullEventDetails(eventDetails);
+        } catch (error) {
+          console.error('Failed to fetch event details:', error);
+          setFullEventDetails(null);
+        } finally {
+          setLoadingEventDetails(false);
+        }
+      } else {
+        setFullEventDetails(null);
+      }
+    };
+
+    fetchEventDetails();
+  }, [selectedEvent]);
 
   // Load personal events and users on component mount
   useEffect(() => {
@@ -501,91 +526,246 @@ export default function PersonalSchedule({
       {/* Event Detail Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className={`text-xl font-semibold ${
+                fullEventDetails?.isCanceled ? 'text-red-800 line-through' : 'text-gray-900'
+              }`}>
                 {selectedEvent.title}
               </h3>
               <button
-                onClick={() => setSelectedEvent(null)}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setSelectedEvent(null);
+                  setFullEventDetails(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 mb-6">
-              <div>
-                <span className="font-medium text-gray-700">Time: </span>
-                <span className="text-gray-600">
-                  {(() => {
-                    const start = parseDateTime(selectedEvent.startDateTime);
-                    const end = parseDateTime(selectedEvent.endDateTime);
-                    if (!start || !end) return 'TBD';
-                    return formatTime(start, end).split('\n').join(' - ');
-                  })()}
-                </span>
+            {loadingEventDetails ? (
+              <div className="py-8 text-center text-gray-600">
+                Loading event details...
               </div>
-              
-              {selectedEvent.eventType && (
+            ) : selectedEvent.isPersonalEvent ? (
+              // Personal Event Details
+              <div className="space-y-3 mb-6">
                 <div>
-                  <span className="font-medium text-gray-700">Type: </span>
-                  <span className="text-gray-600">{selectedEvent.eventType}</span>
+                  <span className="font-medium text-gray-700">Time: </span>
+                  <span className="text-gray-600">
+                    {(() => {
+                      const start = parseDateTime(selectedEvent.startDateTime);
+                      const end = parseDateTime(selectedEvent.endDateTime);
+                      if (!start || !end) return 'TBD';
+                      return formatTime(start, end).split('\n').join(' - ');
+                    })()}
+                  </span>
                 </div>
-              )}
-              
-              {selectedEvent.location && (
-                <div>
-                  <span className="font-medium text-gray-700">Location: </span>
-                  <span className="text-gray-600">{selectedEvent.location}</span>
-                </div>
-              )}
-              
-              {selectedEvent.cost && (
-                <div>
-                  <span className="font-medium text-gray-700">Cost: </span>
-                  <span className="text-gray-600">${selectedEvent.cost}</span>
-                </div>
-              )}
-
-              {selectedEvent.isPersonalEvent && (() => {
-                const personalEventId = selectedEvent.id.replace('personal-', '');
-                const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
                 
-                if (personalEvent) {
-                  return (
-                    <>
-                      <div>
-                        <span className="font-medium text-gray-700">Created By: </span>
-                        <span className="text-gray-600">
-                          {personalEvent.creator.firstName} {personalEvent.creator.lastName} ({personalEvent.creator.genConName})
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Attendees: </span>
-                        <div className="text-gray-600 mt-1">
-                          {personalEvent.attendees.length === 0 ? (
-                            <span className="italic text-sm">No attendees yet</span>
-                          ) : (
-                            <ul className="list-disc list-inside text-sm">
-                              {personalEvent.attendees.map(attendeeId => {
-                                const attendee = allUsers.find(u => u.id === attendeeId);
-                                return attendee ? (
-                                  <li key={attendeeId}>
-                                    {attendee.firstName} {attendee.lastName} ({attendee.genConName})
-                                  </li>
-                                ) : null;
-                              })}
-                            </ul>
-                          )}
+                {selectedEvent.eventType && (
+                  <div>
+                    <span className="font-medium text-gray-700">Type: </span>
+                    <span className="text-gray-600">{selectedEvent.eventType}</span>
+                  </div>
+                )}
+                
+                {selectedEvent.location && (
+                  <div>
+                    <span className="font-medium text-gray-700">Location: </span>
+                    <span className="text-gray-600">{selectedEvent.location}</span>
+                  </div>
+                )}
+                
+                {selectedEvent.cost && (
+                  <div>
+                    <span className="font-medium text-gray-700">Cost: </span>
+                    <span className="text-gray-600">${selectedEvent.cost}</span>
+                  </div>
+                )}
+
+                {(() => {
+                  const personalEventId = selectedEvent.id.replace('personal-', '');
+                  const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+                  
+                  if (personalEvent) {
+                    return (
+                      <>
+                        <div>
+                          <span className="font-medium text-gray-700">Created By: </span>
+                          <span className="text-gray-600">
+                            {personalEvent.creator.firstName} {personalEvent.creator.lastName} ({personalEvent.creator.genConName})
+                          </span>
                         </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Attendees: </span>
+                          <div className="text-gray-600 mt-1">
+                            {personalEvent.attendees.length === 0 ? (
+                              <span className="italic text-sm">No attendees yet</span>
+                            ) : (
+                              <ul className="list-disc list-inside text-sm">
+                                {personalEvent.attendees.map(attendeeId => {
+                                  const attendee = allUsers.find(u => u.id === attendeeId);
+                                  return attendee ? (
+                                    <li key={attendeeId}>
+                                      {attendee.firstName} {attendee.lastName} ({attendee.genConName})
+                                    </li>
+                                  ) : null;
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            ) : fullEventDetails ? (
+              // Full GenCon Event Details
+              <>
+                {/* Canceled Event Banner */}
+                {fullEventDetails.isCanceled && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-red-800 font-semibold text-sm">CANCELED EVENT</span>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">
+                      This event has been canceled and may not be available.
+                    </p>
+                  </div>
+                )}
+
+                {/* Event Details */}
+                <div className="space-y-4 mb-6">
+                  {/* Event ID and Type */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
+                      {fullEventDetails.id}
+                    </span>
+                    {fullEventDetails.eventType && (
+                      <span className="px-3 py-1 rounded text-sm bg-blue-100 text-blue-800">
+                        {fullEventDetails.eventType}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Time */}
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Schedule:</h4>
+                    <p className="text-gray-600">
+                      {(() => {
+                        const start = parseDateTime(fullEventDetails.startDateTime || null);
+                        const end = parseDateTime(fullEventDetails.endDateTime || null);
+                        if (!start || !end) return 'TBD';
+                        return formatTime(start, end).split('\n').join(' - ');
+                      })()}
+                      {fullEventDetails.duration && ` (Duration: ${fullEventDetails.duration})`}
+                    </p>
+                  </div>
+
+                  {/* Location & Cost */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fullEventDetails.location && (
+                      <div>
+                        <h4 className="font-medium text-gray-700 mb-2">Location:</h4>
+                        <p className="text-gray-600">📍 {fullEventDetails.location}</p>
                       </div>
-                    </>
-                  );
-                }
-                return null;
-              })()}
-            </div>
+                    )}
+                    {fullEventDetails.cost && (
+                      <div>
+                        <h4 className="font-medium text-gray-700 mb-2">Cost:</h4>
+                        <p className="text-green-600 font-medium">${fullEventDetails.cost}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Game System */}
+                  {fullEventDetails.gameSystem && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Game System:</h4>
+                      <p className="text-gray-600">{fullEventDetails.gameSystem}</p>
+                    </div>
+                  )}
+
+                  {/* Requirements */}
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Requirements:</h4>
+                    <div className="text-gray-600 space-y-1">
+                      {fullEventDetails.ageRequired && (
+                        <p>👥 Age: {fullEventDetails.ageRequired}</p>
+                      )}
+                      {fullEventDetails.experienceRequired && (
+                        <p>🎯 Experience: {fullEventDetails.experienceRequired}</p>
+                      )}
+                      {fullEventDetails.materialsRequired && fullEventDetails.materialsRequired !== 'No' && (
+                        <p>📦 Materials: {fullEventDetails.materialsRequired}</p>
+                      )}
+                      {!fullEventDetails.ageRequired && !fullEventDetails.experienceRequired && (!fullEventDetails.materialsRequired || fullEventDetails.materialsRequired === 'No') && (
+                        <p className="text-gray-500">No special requirements</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Capacity */}
+                  {fullEventDetails.ticketsAvailable !== null && fullEventDetails.ticketsAvailable !== undefined && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Capacity:</h4>
+                      <p className="text-blue-600 font-medium">
+                        {fullEventDetails.ticketsAvailable} tickets maximum
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {fullEventDetails.shortDescription && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Description:</h4>
+                      <p className="text-gray-600">{fullEventDetails.shortDescription}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3 mb-6">
+                <div>
+                  <span className="font-medium text-gray-700">Time: </span>
+                  <span className="text-gray-600">
+                    {(() => {
+                      const start = parseDateTime(selectedEvent.startDateTime);
+                      const end = parseDateTime(selectedEvent.endDateTime);
+                      if (!start || !end) return 'TBD';
+                      return formatTime(start, end).split('\n').join(' - ');
+                    })()}
+                  </span>
+                </div>
+                
+                {selectedEvent.eventType && (
+                  <div>
+                    <span className="font-medium text-gray-700">Type: </span>
+                    <span className="text-gray-600">{selectedEvent.eventType}</span>
+                  </div>
+                )}
+                
+                {selectedEvent.location && (
+                  <div>
+                    <span className="font-medium text-gray-700">Location: </span>
+                    <span className="text-gray-600">{selectedEvent.location}</span>
+                  </div>
+                )}
+                
+                {selectedEvent.cost && (
+                  <div>
+                    <span className="font-medium text-gray-700">Cost: </span>
+                    <span className="text-gray-600">${selectedEvent.cost}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               {selectedEvent.isPersonalEvent ? (
