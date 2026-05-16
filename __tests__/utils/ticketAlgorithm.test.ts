@@ -132,6 +132,30 @@ describe('Ticket Algorithm Tests', () => {
   });
 
   describe('Event Distribution Analysis', () => {
+    test('should achieve perfect even distribution: 100 events, 10 users = 5 buyers per event', () => {
+      const users = createTestUsers(10);
+      const events = createTestEvents(100, 10, users); // 100 events, all wanted by all 10 users
+      
+      const { assignments } = calculateTicketAssignments(events, users);
+      const analysis = analyzeAssignments(assignments);
+      
+      // Each user should get exactly 50 events (at the limit)
+      assignments.forEach(assignment => {
+        expect(assignment.totalTickets).toBe(50);
+      });
+      
+      // Each of the 100 events should have approximately 5 buyers (very even distribution)
+      // With greedy algorithm, we expect 4-6 buyers per event (very good balance)
+      expect(analysis.minBuyers).toBeGreaterThanOrEqual(4);
+      expect(analysis.maxBuyers).toBeLessThanOrEqual(6);
+      expect(analysis.avgBuyers).toBe(5); // Average should be exactly 5
+      expect(analysis.eventsWithNoBuyers).toBe(0);
+      
+      // Total assignments: 10 users × 50 events = 500
+      const totalAssignments = assignments.reduce((sum, a) => sum + a.totalTickets, 0);
+      expect(totalAssignments).toBe(500);
+    });
+
     test('should provide good spread with no events left unbought', () => {
       const users = createTestUsers(4);
       const events = createTestEvents(20, 4, users); // 20 events, each wanted by all 4 users

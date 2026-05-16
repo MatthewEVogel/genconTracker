@@ -1,25 +1,56 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { EventsListService } from '@/lib/services/server/eventsListService';
+import { prisma } from '@/lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'GET') {
-    try {
-      const { eventId } = req.query;
+  const { eventId } = req.query;
 
-      if (!eventId || typeof eventId !== 'string') {
-        return res.status(400).json({ error: 'Event ID is required' });
+  if (!eventId || typeof eventId !== 'string') {
+    return res.status(400).json({ error: 'Event ID is required' });
+  }
+
+  // PATCH - Update event priority (accessible to all authenticated users)
+  if (req.method === 'PATCH') {
+    try {
+      const { priority } = req.body;
+
+      // Validate priority value
+      if (priority === undefined || ![1, 2, 3].includes(priority)) {
+        return res.status(400).json({ 
+          error: 'Invalid priority value. Must be 1 (Normal), 2 (Important), or 3 (Critical)' 
+        });
       }
 
-      const event = await EventsListService.getEventById(eventId);
-      
+      // Check if event exists
+      const event = await prisma.eventsList.findUnique({
+        where: { id: eventId }
+      });
+
       if (!event) {
         return res.status(404).json({ error: 'Event not found' });
       }
 
-      return res.status(200).json({ event });
+      // Update the event priority
+      const updatedEvent = await prisma.eventsList.update({
+        where: { id: eventId },
+        data: { priority },
+        include: {
+          _count: {
+            select: {
+              desiredEvents: true,
+              trackedBy: true
+            }
+          }
+        }
+      });
+
+      return res.status(200).json({ 
+        event: updatedEvent,
+        message: 'Event priority updated successfully'
+      });
+
     } catch (error) {
-      console.error('Error fetching event:', error);
-      return res.status(500).json({ error: 'Failed to fetch event' });
+      console.error('Error updating event priority:', error);
+      return res.status(500).json({ error: 'Failed to update event priority' });
     }
   }
 

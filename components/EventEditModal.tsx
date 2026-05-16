@@ -311,15 +311,18 @@ export default function EventEditModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Priority
                 </label>
-                <input
-                  type="number"
+                <select
                   value={formData.priority}
-                  onChange={(e) => handleInputChange('priority', parseInt(e.target.value) || 1)}
+                  onChange={(e) => handleInputChange('priority', parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  min="1"
-                  max="10"
-                />
-                <p className="text-xs text-gray-500 mt-1">1 = Highest priority, 10 = Lowest priority</p>
+                >
+                  <option value={3}>🔴 Critical - Highest priority (assigned first)</option>
+                  <option value={2}>🟡 Important - Medium priority (assigned second)</option>
+                  <option value={1}>⚪ Normal - Standard priority (assigned last)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Priority determines the order events are assigned in the ticket algorithm
+                </p>
               </div>
 
               <div className="flex items-center">

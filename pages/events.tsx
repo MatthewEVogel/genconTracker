@@ -8,6 +8,7 @@ import { useCustomAlerts } from "@/hooks/useCustomAlerts";
 import EventTooltip from "@/components/EventTooltip";
 import EventEditModal from "@/components/EventEditModal";
 import { UserListService } from "@/lib/services/client/userListService";
+import { EventsListService } from "@/lib/services/client/eventsListService";
 
 // Custom hook to detect screen size
 const useIsMobile = () => {

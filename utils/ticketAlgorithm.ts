@@ -175,6 +175,10 @@ export function calculateTicketAssignments(
   // Track which events have already been processed to avoid double-processing
   const processedEvents = new Set<string>();
   
+  // Track which events each user is already assigned to buy (prevent duplicates) - GLOBAL across all priority tiers
+  const userEventAssignments = new Map<string, Set<string>>();
+  allUserIds.forEach(userId => userEventAssignments.set(userId, new Set()));
+  
   for (const priorityLevel of priorityLevels) {
     const eventsInTier = eventsByPriority.get(priorityLevel) || [];
     if (eventsInTier.length === 0) continue;
@@ -184,12 +188,17 @@ export function calculateTicketAssignments(
     if (unprocessedEventsInTier.length === 0) continue;
     
     // Track current buyer count for each event in this tier
+    // Initialize with actual count of users who already have this event assigned
     const eventBuyerCounts = new Map<string, number>();
-    unprocessedEventsInTier.forEach(event => eventBuyerCounts.set(event.eventId, 0));
-    
-    // Track which events each user is already assigned to buy (prevent duplicates)
-    const userEventAssignments = new Map<string, Set<string>>();
-    allUserIds.forEach(userId => userEventAssignments.set(userId, new Set()));
+    unprocessedEventsInTier.forEach(event => {
+      let actualBuyerCount = 0;
+      for (const userId of allUserIds) {
+        if (userEventAssignments.get(userId)!.has(event.eventId)) {
+          actualBuyerCount++;
+        }
+      }
+      eventBuyerCounts.set(event.eventId, actualBuyerCount);
+    });
     
     // Iteratively assign buyers until stopping conditions are met
     while (true) {
@@ -207,7 +216,9 @@ export function calculateTicketAssignments(
         );
         return usersWhoCanTakeThisEvent.length === 0;
       });
-      if (maxCoverageAchieved) break;
+      if (maxCoverageAchieved) {
+        break;
+      }
       
       // Find event with fewest current buyers
       let eventWithFewestBuyers: EventSummary | null = null;
@@ -249,7 +260,14 @@ export function calculateTicketAssignments(
         }
       }
       
-      if (!userWithFewestEvents) break;
+      if (!userWithFewestEvents) {
+        // No user can take this event, but other events might still be assignable
+        // Mark this event as having maximum coverage for this iteration
+        if (eventWithFewestBuyers) {
+          eventBuyerCounts.set(eventWithFewestBuyers.eventId, Infinity);
+        }
+        continue; // Try next event instead of breaking
+      }
       
       // Assign this user to buy this event
       userTicketCounts.set(userWithFewestEvents, userTicketCounts.get(userWithFewestEvents)! + 1);

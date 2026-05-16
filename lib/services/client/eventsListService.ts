@@ -130,6 +130,25 @@ export class EventsListService {
     return await this.getEvents(filters);
   }
 
+  // Update event priority
+  static async updateEventPriority(eventId: string, priority: number): Promise<EventsListItem> {
+    const response = await fetch(`/api/events-list/${eventId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ priority }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to update event priority');
+    }
+
+    return data.event;
+  }
+
   // Calculate duration from start and end times (client-side utility)
   static calculateDuration(startDateTime: string | null, endDateTime: string | null): string | null {
     if (!startDateTime || !endDateTime) {
