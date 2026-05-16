@@ -171,9 +171,8 @@ export default function PersonalSchedule({
   const userEvents = currentUserData ? currentUserData.events : [];
 
   // Convert personal events to ScheduleEvent format for display
-  // Only show personal events where the user is creator or attendee
+  // Show ALL personal events so users can discover and join events created by others
   const personalEventsAsScheduleEvents: ScheduleEvent[] = personalEvents
-    .filter(event => event.createdBy === currentUser.id || event.attendees.includes(currentUser.id))
     .map(event => ({
       id: `personal-${event.id}`,
       title: event.title,
