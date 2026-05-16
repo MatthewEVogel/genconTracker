@@ -10,6 +10,7 @@ export interface ScheduleEvent {
   location?: string | null;
   cost?: string | null;
   ticketsAvailable?: number | null;
+  shortDescription?: string | null;
 }
 
 export interface ScheduleUser {
@@ -223,7 +224,8 @@ export class ScheduleService {
         eventType: desiredEvent.eventsList.eventType,
         location: desiredEvent.eventsList.location,
         cost: desiredEvent.eventsList.cost,
-        ticketsAvailable: desiredEvent.eventsList.ticketsAvailable
+        ticketsAvailable: desiredEvent.eventsList.ticketsAvailable,
+        shortDescription: desiredEvent.eventsList.shortDescription
       }))
     }));
 
@@ -263,7 +265,8 @@ export class ScheduleService {
             eventType: eventData.eventType,
             location: eventData.location,
             cost: eventData.cost,
-            ticketsAvailable: eventData.ticketsAvailable
+            ticketsAvailable: eventData.ticketsAvailable,
+            shortDescription: eventData.shortDescription
           } as ScheduleEvent);
         }
       });
