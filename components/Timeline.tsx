@@ -667,7 +667,7 @@ export default function Timeline({
                       // Calculate vertical stacking for conflicts
                       let topOffset = 'top-1';
                       let bottomOffset = 'bottom-1';
-                      if (hasConflict && isCurrentUser) {
+                      if (hasConflict) {
                         // For conflicting events, make them smaller and stacked
                         topOffset = 'top-1';
                         bottomOffset = 'bottom-[55%]'; // Top half of the row
@@ -811,7 +811,7 @@ export default function Timeline({
                         // Calculate vertical stacking for conflicts
                         let topOffset = 'top-1';
                         let bottomOffset = 'bottom-1';
-                        if (hasConflict && isCurrentUser) {
+                        if (hasConflict) {
                           // For conflicting events, make them smaller and stacked
                           topOffset = 'top-1';
                           bottomOffset = 'bottom-[55%]'; // Top half of the row
