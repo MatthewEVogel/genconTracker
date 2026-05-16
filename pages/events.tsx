@@ -1259,6 +1259,26 @@ export default function EventsPage() {
               )}
             </div>
 
+            {/* User Selector */}
+            {!userEventIds.includes(selectedEvent.id) && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add event for:
+                </label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {allUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName} ({user.genConName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-3">
               {/* Add/Remove Event Button */}
