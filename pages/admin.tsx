@@ -121,6 +121,45 @@ export default function AdminPage() {
   const [orphanedDeleteLoading, setOrphanedDeleteLoading] = useState<string | null>(null);
   const [showOrphaned, setShowOrphaned] = useState(false);
 
+  // Wishlist management state
+  interface WishlistEvent {
+    desiredEventId: string;
+    event: {
+      id: string;
+      title: string;
+      startDateTime: Date | null;
+      endDateTime: Date | null;
+      eventType: string | null;
+      location: string | null;
+      cost: string | null;
+      ticketsAvailable: number | null;
+      isCanceled: boolean;
+    };
+  }
+
+  interface UserWishlist {
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      genConName: string;
+      email: string;
+    };
+    events: WishlistEvent[];
+  }
+
+  interface WishlistData {
+    wishlists: UserWishlist[];
+    totalUsers: number;
+    totalEvents: number;
+  }
+
+  const [wishlistData, setWishlistData] = useState<WishlistData | null>(null);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistDeleteLoading, setWishlistDeleteLoading] = useState<string | null>(null);
+  const [showWishlists, setShowWishlists] = useState(false);
+  const [selectedWishlistUser, setSelectedWishlistUser] = useState<string>('all');
+
   useEffect(() => {
     // Redirect to login if no user is logged in
     if (!user) {
@@ -543,6 +582,80 @@ export default function AdminPage() {
       setOrphanedDeleteLoading(null);
       console.log('Delete operation completed');
     }
+  };
+
+  const fetchWishlists = async () => {
+    if (!user) return;
+    
+    try {
+      setWishlistLoading(true);
+      setError("");
+      const response = await fetch('/api/admin/wishlists');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch wishlists');
+      }
+      
+      setWishlistData(data);
+    } catch (err) {
+      console.error('Error fetching wishlists:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
+  const handleDeleteWishlistEvent = async (desiredEventId: string, userName: string, eventTitle: string) => {
+    if (!user) return;
+    
+    const confirmMessage = `Remove "${eventTitle}" from ${userName}'s wishlist?\n\nThis action cannot be undone.`;
+    
+    const confirmed = await customConfirm(confirmMessage, 'Remove Event');
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      setWishlistDeleteLoading(desiredEventId);
+      setError("");
+      
+      const response = await fetch('/api/admin/wishlists', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          desiredEventId
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete wishlist event');
+      }
+      
+      // Refresh wishlist data
+      await fetchWishlists();
+      
+      await customAlert(data.message, 'Success');
+    } catch (err) {
+      console.error('Error deleting wishlist event:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setWishlistDeleteLoading(null);
+    }
+  };
+
+  const getFilteredWishlists = () => {
+    if (!wishlistData) return [];
+    
+    if (selectedWishlistUser === 'all') {
+      return wishlistData.wishlists;
+    }
+    
+    return wishlistData.wishlists.filter(w => w.user.id === selectedWishlistUser);
   };
 
   const handleDeleteAllOrphanedPurchases = async () => {
@@ -1422,6 +1535,217 @@ export default function AdminPage() {
             <div className="text-center py-12">
               <div className="text-gray-500 text-lg">Click "Load Orphaned Purchases" to scan for ghost users.</div>
               <div className="text-gray-400 text-sm mt-2">This will check for purchases that don't match any user's GenCon name.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Wishlist Management Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">📋 Wishlist Management</h2>
+            <div className="space-x-3">
+              <button
+                onClick={() => setShowWishlists(!showWishlists)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              >
+                {showWishlists ? 'Hide Wishlists' : 'Show Wishlists'}
+              </button>
+              {showWishlists && (
+                <button
+                  onClick={fetchWishlists}
+                  disabled={wishlistLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {wishlistLoading ? 'Loading...' : 'Load Wishlists'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600 mb-4">
+            <p>View and manage all users' wishlists (desired events). You can remove events from any user's wishlist.</p>
+          </div>
+
+          {wishlistData && (
+            <div className="mb-6">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                <div className="text-center">
+                  <div className="font-semibold text-blue-600">{wishlistData.totalEvents}</div>
+                  <div className="text-gray-600">Total Wishlist Items</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-purple-600">{wishlistData.totalUsers}</div>
+                  <div className="text-gray-600">Users with Wishlists</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-green-600">
+                    {wishlistData.totalUsers > 0 ? (wishlistData.totalEvents / wishlistData.totalUsers).toFixed(1) : 0}
+                  </div>
+                  <div className="text-gray-600">Avg Events per User</div>
+                </div>
+              </div>
+
+              {/* User Filter */}
+              <div className="mb-4">
+                <label htmlFor="wishlistUserFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by User:
+                </label>
+                <select
+                  id="wishlistUserFilter"
+                  value={selectedWishlistUser}
+                  onChange={(e) => setSelectedWishlistUser(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Users ({wishlistData.totalUsers})</option>
+                  {wishlistData.wishlists.map((wishlist) => (
+                    <option key={wishlist.user.id} value={wishlist.user.id}>
+                      {wishlist.user.firstName} {wishlist.user.lastName} ({wishlist.events.length} events)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {showWishlists && wishlistLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-lg text-gray-600">Loading wishlists...</div>
+            </div>
+          ) : showWishlists && wishlistData ? (
+            <>
+              {getFilteredWishlists().map((wishlist) => (
+                <div key={wishlist.user.id} className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                  {/* User Header */}
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {wishlist.user.firstName} {wishlist.user.lastName}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {wishlist.user.genConName} • {wishlist.user.email}
+                        </p>
+                      </div>
+                      <div className="text-sm font-medium text-gray-700">
+                        {wishlist.events.length} event{wishlist.events.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Events Table */}
+                  {wishlist.events.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Event
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Schedule
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Cost
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {wishlist.events.map((item) => (
+                            <tr key={item.desiredEventId} className="hover:bg-gray-50">
+                              <td className="px-6 py-4">
+                                <div className="text-sm font-medium text-gray-900 max-w-xs">
+                                  {item.event.title}
+                                </div>
+                                <div className="text-xs text-gray-500 font-mono">
+                                  ID: {item.event.id}
+                                </div>
+                                {item.event.location && (
+                                  <div className="text-xs text-gray-600">
+                                    📍 {item.event.location}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
+                                  {item.event.eventType || 'N/A'}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
+                                  {item.event.startDateTime ? formatDate(item.event.startDateTime.toString()) : 'TBD'}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {item.event.startDateTime ? formatDateTime(item.event.startDateTime.toString()) : ''}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
+                                  {item.event.cost || 'Free'}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  item.event.isCanceled 
+                                    ? 'bg-red-100 text-red-800' 
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {item.event.isCanceled ? 'Canceled' : 'Active'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button
+                                  onClick={() => handleDeleteWishlistEvent(
+                                    item.desiredEventId, 
+                                    `${wishlist.user.firstName} ${wishlist.user.lastName}`,
+                                    item.event.title
+                                  )}
+                                  disabled={wishlistDeleteLoading === item.desiredEventId}
+                                  className="text-red-600 hover:text-red-900 transition disabled:opacity-50"
+                                >
+                                  {wishlistDeleteLoading === item.desiredEventId ? 'Removing...' : 'Remove'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-500">No events in wishlist</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {getFilteredWishlists().length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-500 text-lg">
+                    {selectedWishlistUser === 'all' ? 'No wishlists found.' : 'This user has no wishlist events.'}
+                  </div>
+                  <div className="text-gray-400 text-sm mt-2">
+                    {selectedWishlistUser === 'all' 
+                      ? 'Users haven\'t added any events to their wishlists yet.' 
+                      : 'This user hasn\'t added any events to their wishlist yet.'
+                    }
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-500 text-lg">Click "Load Wishlists" to view all user wishlists.</div>
+              <div className="text-gray-400 text-sm mt-2">This will load all desired events from the database.</div>
             </div>
           )}
         </div>
