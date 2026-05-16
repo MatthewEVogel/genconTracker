@@ -1192,9 +1192,22 @@ export default function EventsPage() {
             <div className="space-y-4 mb-6">
               {/* Event ID and Type */}
               <div className="flex items-center justify-between">
-                <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
-                  {selectedEvent.id}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
+                    {selectedEvent.id}
+                  </span>
+                  <a
+                    href={`https://www.gencon.com/events/${selectedEvent.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View on GenCon
+                  </a>
+                </div>
                 {selectedEvent.eventType && (
                   <span className="px-3 py-1 rounded text-sm bg-blue-100 text-blue-800">
                     {selectedEvent.eventType}
