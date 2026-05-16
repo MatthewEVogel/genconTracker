@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ScheduleUser, ScheduleEvent, ScheduleService } from '@/lib/services/client/scheduleService';
 import { EventService, Event } from '@/lib/services/client/eventService';
+import { EventsListService } from '@/lib/services/client/eventsListService';
 import ScheduleEventTooltip from '@/components/ScheduleEventTooltip';
 import { PersonalEventModal } from '@/components/PersonalEventModal';
 import { personalEventService, PersonalEvent } from '@/lib/services/client/personalEventService';
@@ -186,6 +187,8 @@ export default function Timeline({
   const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
   const [fullEventDetails, setFullEventDetails] = useState<Event | null>(null);
   const [loadingEventDetails, setLoadingEventDetails] = useState(false);
+  const [eventPriority, setEventPriority] = useState<number>(1);
+  const [updatingPriority, setUpdatingPriority] = useState(false);
   
   // Use mobile detection hook
   const isMobile = useIsMobile();
@@ -208,6 +211,7 @@ export default function Timeline({
         try {
           const eventDetails = await EventService.getEventById(selectedEvent.id);
           setFullEventDetails(eventDetails);
+          setEventPriority(eventDetails.priority || 1);
         } catch (error) {
           console.error('Failed to fetch event details:', error);
           setFullEventDetails(null);
@@ -221,6 +225,25 @@ export default function Timeline({
 
     fetchEventDetails();
   }, [selectedEvent]);
+
+  // Handle priority change
+  const handlePriorityChange = async (newPriority: number) => {
+    if (!selectedEvent || selectedEvent.isPersonalEvent) return;
+    
+    setUpdatingPriority(true);
+    try {
+      await EventsListService.updateEventPriority(selectedEvent.id, newPriority);
+      setEventPriority(newPriority);
+      if (fullEventDetails) {
+        setFullEventDetails({ ...fullEventDetails, priority: newPriority });
+      }
+    } catch (error) {
+      console.error('Failed to update priority:', error);
+      alert('Failed to update priority. Please try again.');
+    } finally {
+      setUpdatingPriority(false);
+    }
+  };
 
   // Load users when transfer modal is opened
   useEffect(() => {
@@ -1064,6 +1087,13 @@ export default function Timeline({
                     <span className="text-gray-600">${selectedEvent.cost}</span>
                   </div>
                 )}
+                
+                {selectedEvent.shortDescription && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-1">Description:</h4>
+                    <p className="text-gray-600">{selectedEvent.shortDescription}</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1125,29 +1155,52 @@ export default function Timeline({
                 })()
               ) : (
                 // GenCon event actions
-                <div className="flex space-x-3">
-                  {userEventIds.includes(selectedEvent.id) ? (
-                    <button
-                      onClick={() => {
-                        onRemoveEvent(selectedEvent.id);
-                        setSelectedEvent(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                <>
+                  {/* Priority Selector */}
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Event Priority (for ticket algorithm)
+                    </label>
+                    <select
+                      value={eventPriority}
+                      onChange={(e) => handlePriorityChange(parseInt(e.target.value))}
+                      disabled={updatingPriority}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                     >
-                      Remove Event
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        onAddEvent(selectedEvent.id);
-                        setSelectedEvent(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                    >
-                      Add Event
-                    </button>
-                  )}
-                </div>
+                      <option value={3}>🔴 Critical - Highest priority (assigned first)</option>
+                      <option value={2}>🟡 Important - Medium priority (assigned second)</option>
+                      <option value={1}>⚪ Normal - Standard priority (assigned last)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {updatingPriority ? 'Updating...' : 'Priority determines order in the ticket distribution algorithm'}
+                    </p>
+                  </div>
+
+                  {/* Add/Remove Event Button */}
+                  <div className="flex space-x-3">
+                    {userEventIds.includes(selectedEvent.id) ? (
+                      <button
+                        onClick={() => {
+                          onRemoveEvent(selectedEvent.id);
+                          setSelectedEvent(null);
+                        }}
+                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                      >
+                        Remove Event
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          onAddEvent(selectedEvent.id);
+                          setSelectedEvent(null);
+                        }}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                      >
+                        Add Event
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
