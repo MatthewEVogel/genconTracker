@@ -129,6 +129,11 @@ export default function PersonalSchedule({
   const [modalInitialTime, setModalInitialTime] = useState<Date | undefined>();
   const [isLoadingPersonalEvents, setIsLoadingPersonalEvents] = useState(true);
   const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    eventId: string;
+    conflicts: any[];
+  }>({ eventId: '', conflicts: [] });
 
   // Clear selected event when day changes
   useEffect(() => {
@@ -141,8 +146,8 @@ export default function PersonalSchedule({
       try {
         setIsLoadingPersonalEvents(true);
         
-        // Load personal events where user is creator or attendee
-        const events = await personalEventService.getPersonalEvents(currentUser.id);
+        // Load ALL personal events so users can see and join them
+        const events = await personalEventService.getPersonalEvents(currentUser.id, true);
         setPersonalEvents(events);
 
         // Load all users for attendee selection
@@ -166,16 +171,19 @@ export default function PersonalSchedule({
   const userEvents = currentUserData ? currentUserData.events : [];
 
   // Convert personal events to ScheduleEvent format for display
-  const personalEventsAsScheduleEvents: ScheduleEvent[] = personalEvents.map(event => ({
-    id: `personal-${event.id}`,
-    title: event.title,
-    startDateTime: event.startTime,
-    endDateTime: event.endTime,
-    location: event.location || '',
-    eventType: 'Personal Event',
-    cost: null,
-    isPersonalEvent: true
-  }));
+  // Only show personal events where the user is creator or attendee
+  const personalEventsAsScheduleEvents: ScheduleEvent[] = personalEvents
+    .filter(event => event.createdBy === currentUser.id || event.attendees.includes(currentUser.id))
+    .map(event => ({
+      id: `personal-${event.id}`,
+      title: event.title,
+      startDateTime: event.startTime,
+      endDateTime: event.endTime,
+      location: event.location || '',
+      eventType: 'Personal Event',
+      cost: null,
+      isPersonalEvent: true
+    }));
 
   // Combine GenCon events and personal events
   const allEvents = [...userEvents, ...personalEventsAsScheduleEvents];
@@ -251,6 +259,69 @@ export default function PersonalSchedule({
       setEditingEvent(personalEvent);
       setIsPersonalEventModalOpen(true);
       setSelectedEvent(null);
+    }
+  };
+
+  // Handle joining a personal event
+  const handleJoinPersonalEvent = async (eventId: string) => {
+    try {
+      const response = await personalEventService.joinPersonalEvent(eventId, currentUser.id);
+      
+      if (response.conflicts && response.conflicts.length > 0) {
+        setConflictData({ eventId, conflicts: response.conflicts });
+        setShowConflictModal(true);
+      } else if (response.personalEvent) {
+        // Update the personal events list
+        setPersonalEvents(prev => 
+          prev.map(event => event.id === eventId ? response.personalEvent : event)
+        );
+        setSelectedEvent(null);
+      }
+    } catch (error) {
+      console.error('Failed to join personal event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to join event. Please try again.');
+    }
+  };
+
+  // Handle joining with conflicts
+  const handleJoinWithConflicts = async () => {
+    try {
+      const response = await personalEventService.joinPersonalEvent(conflictData.eventId, currentUser.id, true);
+      
+      if (response.personalEvent) {
+        setPersonalEvents(prev => 
+          prev.map(event => event.id === conflictData.eventId ? response.personalEvent : event)
+        );
+        setShowConflictModal(false);
+        setConflictData({ eventId: '', conflicts: [] });
+        setSelectedEvent(null);
+      }
+    } catch (error) {
+      console.error('Failed to join personal event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to join event. Please try again.');
+    }
+  };
+
+  // Handle leaving a personal event
+  const handleLeavePersonalEvent = async (eventId: string) => {
+    try {
+      await personalEventService.leavePersonalEvent(eventId, currentUser.id);
+      
+      // Update the personal events list
+      const updatedEvent = personalEvents.find(e => e.id === eventId);
+      if (updatedEvent) {
+        setPersonalEvents(prev => 
+          prev.map(event => 
+            event.id === eventId 
+              ? { ...event, attendees: event.attendees.filter(id => id !== currentUser.id) }
+              : event
+          )
+        );
+      }
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to leave personal event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to leave event. Please try again.');
     }
   };
 
@@ -431,7 +502,7 @@ export default function PersonalSchedule({
       {/* Event Detail Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 {selectedEvent.title}
@@ -477,36 +548,108 @@ export default function PersonalSchedule({
                   <span className="text-gray-600">${selectedEvent.cost}</span>
                 </div>
               )}
+
+              {selectedEvent.isPersonalEvent && (() => {
+                const personalEventId = selectedEvent.id.replace('personal-', '');
+                const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+                
+                if (personalEvent) {
+                  return (
+                    <>
+                      <div>
+                        <span className="font-medium text-gray-700">Created By: </span>
+                        <span className="text-gray-600">
+                          {personalEvent.creator.firstName} {personalEvent.creator.lastName} ({personalEvent.creator.genConName})
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Attendees: </span>
+                        <div className="text-gray-600 mt-1">
+                          {personalEvent.attendees.length === 0 ? (
+                            <span className="italic text-sm">No attendees yet</span>
+                          ) : (
+                            <ul className="list-disc list-inside text-sm">
+                              {personalEvent.attendees.map(attendeeId => {
+                                const attendee = allUsers.find(u => u.id === attendeeId);
+                                return attendee ? (
+                                  <li key={attendeeId}>
+                                    {attendee.firstName} {attendee.lastName} ({attendee.genConName})
+                                  </li>
+                                ) : null;
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="space-y-3">
               {selectedEvent.isPersonalEvent ? (
                 // Personal event actions
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleEditPersonalEvent(selectedEvent)}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                  >
-                    Edit Event
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to delete this event?')) {
-                        const personalEventId = selectedEvent.id.replace('personal-', '');
-                        handleDeletePersonalEvent(personalEventId);
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                  >
-                    Delete Event
-                  </button>
-                  <button
-                    onClick={() => setSelectedEvent(null)}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                  >
-                    Close
-                  </button>
-                </div>
+                (() => {
+                  const personalEventId = selectedEvent.id.replace('personal-', '');
+                  const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+                  const isCreator = personalEvent?.createdBy === currentUser.id;
+                  const isAttendee = personalEvent?.attendees.includes(currentUser.id);
+
+                  return (
+                    <>
+                      {isCreator ? (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleEditPersonalEvent(selectedEvent)}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                          >
+                            Edit Event
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this event?')) {
+                                handleDeletePersonalEvent(personalEventId);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                          >
+                            Delete Event
+                          </button>
+                        </div>
+                      ) : isAttendee ? (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to leave this event?')) {
+                                handleLeavePersonalEvent(personalEventId);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition"
+                          >
+                            Leave Event
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleJoinPersonalEvent(personalEventId)}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                          >
+                            Join Event
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setSelectedEvent(null)}
+                        className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                      >
+                        Close
+                      </button>
+                    </>
+                  );
+                })()
               ) : (
                 // GenCon event actions
                 <div className="flex space-x-3">
@@ -573,6 +716,70 @@ export default function PersonalSchedule({
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conflict Warning Modal for Joining Events */}
+      {showConflictModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-yellow-600 mb-2">
+                ⚠️ Scheduling Conflicts Detected
+              </h3>
+              
+              <p className="text-gray-700 mb-3">
+                You have conflicts with this time slot:
+              </p>
+
+              {conflictData.conflicts.map((conflict, index) => (
+                <div key={index} className="mb-3">
+                  {conflict.personalEventConflicts && conflict.personalEventConflicts.length > 0 && (
+                    <div>
+                      <p className="font-medium text-gray-700 text-sm mb-1">Personal Events:</p>
+                      {conflict.personalEventConflicts.map((event: any) => (
+                        <p key={event.id} className="text-sm text-gray-600 ml-2">
+                          • {event.title} ({new Date(event.startTime).toLocaleString()} - {new Date(event.endTime).toLocaleString()})
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {conflict.genconConflicts && conflict.genconConflicts.length > 0 && (
+                    <div>
+                      <p className="font-medium text-gray-700 text-sm mb-1 mt-2">GenCon Events:</p>
+                      {conflict.genconConflicts.map((event: any) => (
+                        <p key={event.id} className="text-sm text-gray-600 ml-2">
+                          • {event.title} ({new Date(event.startDateTime).toLocaleString()} - {new Date(event.endDateTime).toLocaleString()})
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <p className="text-gray-700 mt-3">
+                Do you want to join this event anyway? Conflicting events will be shown in red on your timeline.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleJoinWithConflicts}
+                className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition"
+              >
+                Join Anyway
+              </button>
+              <button
+                onClick={() => {
+                  setShowConflictModal(false);
+                  setConflictData({ eventId: '', conflicts: [] });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

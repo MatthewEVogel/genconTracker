@@ -12,20 +12,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (req.method === 'GET') {
     try {
-      const { userId } = req.query;
+      const { userId, all } = req.query;
       
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      // Get all personal events where the user is either the creator or an attendee
+      // If 'all' parameter is true, fetch all personal events
+      // Otherwise, only fetch events where the user is creator or attendee
+      const whereClause = all === 'true' 
+        ? {} // No filter - get all events
+        : {
+            OR: [
+              { createdBy: userId },
+              { attendees: { has: userId } }
+            ]
+          };
+
       const personalEvents = await prisma.personalEvent.findMany({
-        where: {
-          OR: [
-            { createdBy: userId },
-            { attendees: { has: userId } }
-          ]
-        },
+        where: whereClause,
         include: {
           creator: {
             select: {

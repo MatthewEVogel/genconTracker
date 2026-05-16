@@ -59,8 +59,11 @@ export interface CreatePersonalEventResponse {
 }
 
 export const personalEventService = {
-  async getPersonalEvents(userId: string): Promise<PersonalEvent[]> {
-    const response = await fetch(`/api/personal-events?userId=${userId}`);
+  async getPersonalEvents(userId: string, fetchAll: boolean = false): Promise<PersonalEvent[]> {
+    const url = fetchAll 
+      ? `/api/personal-events?userId=${userId}&all=true`
+      : `/api/personal-events?userId=${userId}`;
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch personal events');
     }
@@ -167,5 +170,44 @@ export const personalEventService = {
   getDefaultEndTime(startTime: Date): Date {
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // Add 1 hour in milliseconds
     return endTime;
+  },
+
+  async joinPersonalEvent(eventId: string, userId: string, force: boolean = false): Promise<CreatePersonalEventResponse> {
+    const response = await fetch(`/api/personal-events/${eventId}/join`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, force }),
+    });
+
+    if (response.status === 409) {
+      // Conflict response
+      const data = await response.json();
+      return { personalEvent: null as any, conflicts: data.conflicts };
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to join personal event');
+    }
+
+    const data = await response.json();
+    return { personalEvent: data.personalEvent, conflicts: undefined };
+  },
+
+  async leavePersonalEvent(eventId: string, userId: string): Promise<void> {
+    const response = await fetch(`/api/personal-events/${eventId}/join`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to leave personal event');
+    }
   }
 };
