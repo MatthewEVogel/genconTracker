@@ -9,6 +9,8 @@ import EventTooltip from "@/components/EventTooltip";
 import EventEditModal from "@/components/EventEditModal";
 import { UserListService } from "@/lib/services/client/userListService";
 import { EventsListService } from "@/lib/services/client/eventsListService";
+import GroupedEventCard from "@/components/GroupedEventCard";
+import { GroupedEvent } from "@/lib/services/server/eventsListService";
 
 // Custom hook to detect screen size
 const useIsMobile = () => {
@@ -60,6 +62,8 @@ export default function EventsPage() {
   const { user, logout } = useUserStore();
   const { customAlert, AlertComponent } = useCustomAlerts();
   const [events, setEvents] = useState<Event[]>([]);
+  const [groupedEvents, setGroupedEvents] = useState<GroupedEvent[]>([]);
+  const [isGroupedMode, setIsGroupedMode] = useState(true); // Default to grouped
   const [userEventIds, setUserEventIds] = useState<string[]>([]);
   const [userTrackedEventIds, setUserTrackedEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('All Days');
@@ -133,9 +137,9 @@ export default function EventsPage() {
   }, [allUsers, user]);
 
   useEffect(() => {
-    // Fetch events when any filter changes
+    // Fetch events when any filter changes or grouped mode changes
     fetchEvents();
-  }, [selectedDay, currentPage, searchTerm, startTime, endTime, selectedAgeRatings, selectedEventTypes]);
+  }, [selectedDay, currentPage, searchTerm, startTime, endTime, selectedAgeRatings, selectedEventTypes, isGroupedMode]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -150,25 +154,38 @@ export default function EventsPage() {
     try {
       setLoading(true);
       
-      const filters = {
-        page: currentPage,
-        limit: 100,
-        day: selectedDay !== 'All Days' ? selectedDay : undefined,
-        search: searchTerm.trim() || undefined,
-        startTime: startTime.trim() || undefined,
-        endTime: endTime.trim() || undefined,
-        ageRatings: selectedAgeRatings.length > 0 ? selectedAgeRatings.join(',') : undefined,
-        eventTypes: selectedEventTypes.length > 0 ? selectedEventTypes.join(',') : undefined,
-      };
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '100',
+        ...(selectedDay !== 'All Days' && { day: selectedDay }),
+        ...(searchTerm.trim() && { search: searchTerm.trim() }),
+        ...(startTime.trim() && { startTime: startTime.trim() }),
+        ...(endTime.trim() && { endTime: endTime.trim() }),
+        ...(selectedAgeRatings.length > 0 && { ageRatings: selectedAgeRatings.join(',') }),
+        ...(selectedEventTypes.length > 0 && { eventTypes: selectedEventTypes.join(',') }),
+        ...(isGroupedMode && { grouped: 'true' }),
+      });
 
-      const data = await EventService.getEvents(filters);
+      const response = await fetch(`/api/events-list?${params}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch events');
+      }
+
+      if (isGroupedMode) {
+        setGroupedEvents(data.events);
+        setEvents([]); // Clear ungrouped events
+      } else {
+        setEvents(data.events);
+        setGroupedEvents([]); // Clear grouped events
+        
+        // Update tracked event IDs from the events data
+        const trackedIds = data.events.filter((event: any) => event.isTracked).map((event: any) => event.id);
+        setUserTrackedEventIds(trackedIds);
+      }
       
-      setEvents(data.events);
       setPagination(data.pagination);
-      
-      // Update tracked event IDs from the events data
-      const trackedIds = data.events.filter(event => event.isTracked).map(event => event.id);
-      setUserTrackedEventIds(trackedIds);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -737,6 +754,27 @@ export default function EventsPage() {
             </div>
           </div>
 
+          {/* Grouped Events Toggle */}
+          <div className="mb-6 flex items-center justify-between">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isGroupedMode}
+                onChange={(e) => {
+                  setIsGroupedMode(e.target.checked);
+                  setCurrentPage(1); // Reset pagination when toggling
+                }}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">
+                Group recurring events
+              </span>
+              <span className="ml-2 text-xs text-gray-500">
+                (Combine events with same name into a single card)
+              </span>
+            </label>
+          </div>
+
           {/* Event Count and Pagination Info */}
           {pagination && (
             <div className="mb-4 flex justify-between items-center">
@@ -766,8 +804,23 @@ export default function EventsPage() {
 
         {!loading && !error && (
           <>
-            {/* Mobile: Compressed Cards */}
-            {isMobile ? (
+            {/* Grouped Events View */}
+            {isGroupedMode && !isMobile ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {groupedEvents.map((groupedEvent) => (
+                  <GroupedEventCard
+                    key={groupedEvent.title}
+                    event={groupedEvent}
+                    allUsers={allUsers}
+                    selectedUserId={selectedUserId}
+                    onUserChange={setSelectedUserId}
+                    onAddEvent={handleAddEvent}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+              </div>
+            ) : isMobile ? (
+              /* Mobile: Compressed Cards */
               <div className="grid gap-3 grid-cols-2">
                 {events.map((event) => {
                   const isUserEvent = userEventIds.includes(event.id);

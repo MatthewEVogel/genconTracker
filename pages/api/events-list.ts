@@ -18,7 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         endTime,
         ageRatings,
         eventTypes,
-        maxParticipants
+        maxParticipants,
+        grouped
       } = req.query;
 
       const filters: EventsListFilters = {
@@ -33,29 +34,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         maxParticipants: maxParticipants as string,
       };
 
-      const result = await EventsListService.getEvents(filters);
-      
-      // Add tracking information if user is authenticated
-      if (session && session.user) {
-        const userTrackedEvents = await prisma.userList.findUnique({
-          where: { id: session.user.id },
-          select: {
-            trackedEvents: {
-              select: { id: true }
+      // Check if grouped mode is requested
+      const isGrouped = grouped === 'true';
+
+      if (isGrouped) {
+        // Get user's event IDs for marking instances they have
+        let userEventIds: string[] = [];
+        if (session && session.user) {
+          const userEvents = await prisma.userList.findUnique({
+            where: { id: session.user.id },
+            select: {
+              desiredEvents: {
+                select: {
+                  eventsListId: true
+                }
+              }
             }
-          }
-        });
+          });
+          userEventIds = userEvents?.desiredEvents.map(de => de.eventsListId) || [];
+        }
+
+        const result = await EventsListService.getGroupedEvents(filters, userEventIds);
+        return res.status(200).json(result);
+      } else {
+        // Original ungrouped behavior
+        const result = await EventsListService.getEvents(filters);
         
-        const trackedEventIds = new Set(userTrackedEvents?.trackedEvents.map(e => e.id) || []);
+        // Add tracking information if user is authenticated
+        if (session && session.user) {
+          const userTrackedEvents = await prisma.userList.findUnique({
+            where: { id: session.user.id },
+            select: {
+              trackedEvents: {
+                select: { id: true }
+              }
+            }
+          });
+          
+          const trackedEventIds = new Set(userTrackedEvents?.trackedEvents.map(e => e.id) || []);
+          
+          // Add isTracked field to each event
+          result.events = result.events.map(event => ({
+            ...event,
+            isTracked: trackedEventIds.has(event.id)
+          }));
+        }
         
-        // Add isTracked field to each event
-        result.events = result.events.map(event => ({
-          ...event,
-          isTracked: trackedEventIds.has(event.id)
-        }));
+        return res.status(200).json(result);
       }
-      
-      return res.status(200).json(result);
     } catch (error) {
       console.error('Error fetching events list:', error);
       return res.status(500).json({ error: 'Failed to fetch events' });

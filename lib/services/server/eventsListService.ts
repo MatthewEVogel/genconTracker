@@ -42,6 +42,41 @@ export interface EventsListItem {
   duration?: string | null; // Calculated field
 }
 
+export interface EventInstance {
+  id: string;
+  startDateTime: string | null;
+  endDateTime: string | null;
+  duration?: string | null;
+  location?: string | null;
+  ticketsAvailable?: number | null;
+  isCanceled: boolean;
+  isUserEvent?: boolean;
+}
+
+export interface GroupedEvent {
+  title: string;
+  eventType?: string | null;
+  gameSystem?: string | null;
+  shortDescription?: string | null;
+  cost?: string | null;
+  ageRequired?: string | null;
+  experienceRequired?: string | null;
+  materialsRequired?: string | null;
+  priority: number;
+  instances: EventInstance[];
+}
+
+export interface GroupedEventsResponse {
+  events: GroupedEvent[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalEvents: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
 export interface FilterOptionsResponse {
   ageRatings: string[];
   eventTypes: string[];
@@ -229,6 +264,103 @@ export class EventsListService {
     }
 
     return this.transformEventWithDuration(event);
+  }
+
+  // Get grouped events with filtering and pagination
+  static async getGroupedEvents(filters: EventsListFilters, userEventIds: string[] = []): Promise<GroupedEventsResponse> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 100;
+    const skip = (page - 1) * limit;
+    
+    // Fetch all events
+    const allEvents = await prisma.eventsList.findMany({
+      select: {
+        id: true,
+        title: true,
+        shortDescription: true,
+        eventType: true,
+        gameSystem: true,
+        startDateTime: true,
+        endDateTime: true,
+        ageRequired: true,
+        experienceRequired: true,
+        materialsRequired: true,
+        cost: true,
+        location: true,
+        ticketsAvailable: true,
+        priority: true,
+        isCanceled: true,
+      }
+    });
+
+    // Apply filters
+    let filteredEvents = this.applyFilters(allEvents, filters);
+    
+    // Group events by exact title match
+    const groupedMap = new Map<string, any[]>();
+    filteredEvents.forEach(event => {
+      const existing = groupedMap.get(event.title) || [];
+      existing.push(event);
+      groupedMap.set(event.title, existing);
+    });
+
+    // Convert to GroupedEvent array
+    const groupedEvents: GroupedEvent[] = Array.from(groupedMap.entries()).map(([title, instances]) => {
+      // Use first instance for common properties
+      const firstInstance = instances[0];
+      
+      // Sort instances by startDateTime
+      const sortedInstances = instances.sort((a, b) => {
+        if (!a.startDateTime || !b.startDateTime) return 0;
+        return new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime();
+      });
+
+      return {
+        title,
+        eventType: firstInstance.eventType,
+        gameSystem: firstInstance.gameSystem,
+        shortDescription: firstInstance.shortDescription,
+        cost: firstInstance.cost,
+        ageRequired: firstInstance.ageRequired,
+        experienceRequired: firstInstance.experienceRequired,
+        materialsRequired: firstInstance.materialsRequired,
+        priority: firstInstance.priority,
+        instances: sortedInstances.map(instance => ({
+          id: instance.id,
+          startDateTime: instance.startDateTime,
+          endDateTime: instance.endDateTime,
+          duration: this.calculateDuration(instance.startDateTime, instance.endDateTime),
+          location: instance.location,
+          ticketsAvailable: instance.ticketsAvailable,
+          isCanceled: instance.isCanceled,
+          isUserEvent: userEventIds.includes(instance.id)
+        }))
+      };
+    });
+
+    // Sort grouped events by earliest instance startDateTime
+    const sortedGroupedEvents = groupedEvents.sort((a, b) => {
+      const aTime = a.instances[0]?.startDateTime;
+      const bTime = b.instances[0]?.startDateTime;
+      if (!aTime || !bTime) return 0;
+      return new Date(aTime).getTime() - new Date(bTime).getTime();
+    });
+
+    // Apply pagination
+    const totalEvents = sortedGroupedEvents.length;
+    const paginatedEvents = sortedGroupedEvents.slice(skip, skip + limit);
+    const totalPages = Math.ceil(totalEvents / limit);
+
+    return {
+      events: paginatedEvents,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalEvents,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    };
   }
 
   // Private method to apply filters to events
