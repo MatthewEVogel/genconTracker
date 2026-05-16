@@ -655,6 +655,15 @@ export default function Timeline({
                       const isPersonalEvent = event.id.startsWith('personal-');
                       const eventColor = getEventColor(event.id);
                       
+                      // Calculate vertical stacking for conflicts
+                      let topOffset = 'top-1';
+                      let bottomOffset = 'bottom-1';
+                      if (hasConflict && isCurrentUser) {
+                        // For conflicting events, make them smaller and stacked
+                        topOffset = 'top-1';
+                        bottomOffset = 'bottom-[55%]'; // Top half of the row
+                      }
+                      
                       return (
                         <ScheduleEventTooltip 
                           key={event.id} 
@@ -663,9 +672,11 @@ export default function Timeline({
                           disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
                         >
                           <div
-                            className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                            className={`event-item absolute ${topOffset} ${bottomOffset} rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
                               hasConflict 
-                                ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                ? isPersonalEvent
+                                  ? 'bg-purple-500 text-white ring-2 ring-red-500 z-20'  // Purple with red outline for conflicting personal events
+                                  : `${eventColor} text-white ring-2 ring-red-500 z-20`  // Original color with red outline for conflicts
                                 : isPersonalEvent
                                 ? 'bg-purple-500 text-white z-15'  // Purple for personal events
                                 : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color
@@ -787,6 +798,15 @@ export default function Timeline({
                         const isPersonalEvent = event.id.startsWith('personal-');
                         const eventColor = getEventColor(event.id);
                         
+                        // Calculate vertical stacking for conflicts
+                        let topOffset = 'top-1';
+                        let bottomOffset = 'bottom-1';
+                        if (hasConflict && isCurrentUser) {
+                          // For conflicting events, make them smaller and stacked
+                          topOffset = 'top-1';
+                          bottomOffset = 'bottom-[55%]'; // Top half of the row
+                        }
+                        
                         return (
                           <ScheduleEventTooltip 
                             key={event.id} 
@@ -795,9 +815,11 @@ export default function Timeline({
                             disabled={selectedEvent !== null || showTransferModal || isPersonalEventModalOpen}
                           >
                             <div
-                              className={`event-item absolute top-1 bottom-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
+                              className={`event-item absolute ${topOffset} ${bottomOffset} rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-md ${
                                 hasConflict 
-                                  ? 'bg-red-500 text-white z-20'  // Red for conflicts (highest priority)
+                                  ? isPersonalEvent
+                                    ? 'bg-purple-500 text-white ring-2 ring-red-500 z-20'  // Purple with red outline for conflicting personal events
+                                    : `${eventColor} text-white ring-2 ring-red-500 z-20`  // Original color with red outline for conflicts
                                   : isPersonalEvent
                                   ? 'bg-purple-500 text-white z-15'  // Purple for personal events
                                   : `${eventColor} text-white ${isCurrentUser ? 'z-10' : 'z-0'}`  // Event-based color

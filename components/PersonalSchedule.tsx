@@ -458,7 +458,7 @@ export default function PersonalSchedule({
                         >
                           <div
                             className={`event-item bg-white border-l-4 ${
-                              hasConflict ? 'border-red-500' : 
+                              hasConflict ? `${isPersonalEvent ? 'border-purple-500' : eventColor} ring-2 ring-red-500` : 
                               isPersonalEvent ? 'border-purple-500' : eventColor
                             } rounded-r-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4 border border-gray-100 ${
                               isPersonalEvent ? 'bg-purple-50' : ''
