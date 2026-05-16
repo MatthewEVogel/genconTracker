@@ -654,9 +654,22 @@ export default function PersonalSchedule({
                     )}
                   </div>
 
+                  {/* Description - Now prominently displayed at the top */}
+                  {fullEventDetails.shortDescription && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-800 mb-2 flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Event Description
+                      </h4>
+                      <p className="text-gray-700 leading-relaxed">{fullEventDetails.shortDescription}</p>
+                    </div>
+                  )}
+
                   {/* Time */}
                   <div>
-                    <h4 className="font-medium text-gray-700 mb-2">Schedule:</h4>
+                    <h4 className="font-medium text-gray-700 mb-2">📅 Schedule:</h4>
                     <p className="text-gray-600">
                       {(() => {
                         const start = parseDateTime(fullEventDetails.startDateTime || null);
@@ -672,13 +685,13 @@ export default function PersonalSchedule({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {fullEventDetails.location && (
                       <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Location:</h4>
-                        <p className="text-gray-600">📍 {fullEventDetails.location}</p>
+                        <h4 className="font-medium text-gray-700 mb-2">📍 Location:</h4>
+                        <p className="text-gray-600">{fullEventDetails.location}</p>
                       </div>
                     )}
                     {fullEventDetails.cost && (
                       <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Cost:</h4>
+                        <h4 className="font-medium text-gray-700 mb-2">💰 Cost:</h4>
                         <p className="text-green-600 font-medium">${fullEventDetails.cost}</p>
                       </div>
                     )}
@@ -687,7 +700,7 @@ export default function PersonalSchedule({
                   {/* Game System */}
                   {fullEventDetails.gameSystem && (
                     <div>
-                      <h4 className="font-medium text-gray-700 mb-2">Game System:</h4>
+                      <h4 className="font-medium text-gray-700 mb-2">🎮 Game System:</h4>
                       <p className="text-gray-600">{fullEventDetails.gameSystem}</p>
                     </div>
                   )}
@@ -714,18 +727,10 @@ export default function PersonalSchedule({
                   {/* Capacity */}
                   {fullEventDetails.ticketsAvailable !== null && fullEventDetails.ticketsAvailable !== undefined && (
                     <div>
-                      <h4 className="font-medium text-gray-700 mb-2">Capacity:</h4>
+                      <h4 className="font-medium text-gray-700 mb-2">🎫 Capacity:</h4>
                       <p className="text-blue-600 font-medium">
                         {fullEventDetails.ticketsAvailable} tickets maximum
                       </p>
-                    </div>
-                  )}
-
-                  {/* Description */}
-                  {fullEventDetails.shortDescription && (
-                    <div>
-                      <h4 className="font-medium text-gray-700 mb-2">Description:</h4>
-                      <p className="text-gray-600">{fullEventDetails.shortDescription}</p>
                     </div>
                   )}
                 </div>
