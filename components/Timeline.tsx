@@ -973,7 +973,7 @@ export default function Timeline({
                         {fullEventDetails.id}
                       </span>
                       <a
-                        href={`https://www.gencon.com/events/${fullEventDetails.id}`}
+                        href={`https://www.gencon.com/events/${fullEventDetails.id.slice(-6)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
@@ -1091,7 +1091,7 @@ export default function Timeline({
                     {selectedEvent.id.replace('personal-', '')}
                   </span>
                   <a
-                    href={`https://www.gencon.com/events/${selectedEvent.id.replace('personal-', '')}`}
+                    href={`https://www.gencon.com/events/${selectedEvent.id.replace('personal-', '').slice(-6)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"

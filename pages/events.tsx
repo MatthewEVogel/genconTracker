@@ -1250,7 +1250,7 @@ export default function EventsPage() {
                     {selectedEvent.id}
                   </span>
                   <a
-                    href={`https://www.gencon.com/events/${selectedEvent.id}`}
+                    href={`https://www.gencon.com/events/${selectedEvent.id.slice(-6)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
