@@ -669,8 +669,24 @@ export default function Timeline({
                       let bottomOffset = 'bottom-1';
                       if (hasConflict) {
                         // For conflicting events, make them smaller and stacked
-                        topOffset = 'top-1';
-                        bottomOffset = 'bottom-[55%]'; // Top half of the row
+                        // Determine if this should be top or bottom based on event comparison
+                        const shouldBeOnTop = conflicts.every(conflictEvent => {
+                          // Compare by start time, then by ID as tiebreaker
+                          const thisStart = startTime.getTime();
+                          const conflictStart = parseDateTime(conflictEvent.startDateTime)?.getTime() || 0;
+                          if (thisStart !== conflictStart) {
+                            return thisStart < conflictStart;
+                          }
+                          return event.id < conflictEvent.id;
+                        });
+                        
+                        if (shouldBeOnTop) {
+                          topOffset = 'top-1';
+                          bottomOffset = 'bottom-[55%]'; // Top half of the row
+                        } else {
+                          topOffset = 'top-[45%]'; // Bottom half of the row
+                          bottomOffset = 'bottom-1';
+                        }
                       }
                       
                       return (
@@ -813,8 +829,24 @@ export default function Timeline({
                         let bottomOffset = 'bottom-1';
                         if (hasConflict) {
                           // For conflicting events, make them smaller and stacked
-                          topOffset = 'top-1';
-                          bottomOffset = 'bottom-[55%]'; // Top half of the row
+                          // Determine if this should be top or bottom based on event comparison
+                          const shouldBeOnTop = conflicts.every(conflictEvent => {
+                            // Compare by start time, then by ID as tiebreaker
+                            const thisStart = startTime.getTime();
+                            const conflictStart = parseDateTime(conflictEvent.startDateTime)?.getTime() || 0;
+                            if (thisStart !== conflictStart) {
+                              return thisStart < conflictStart;
+                            }
+                            return event.id < conflictEvent.id;
+                          });
+                          
+                          if (shouldBeOnTop) {
+                            topOffset = 'top-1';
+                            bottomOffset = 'bottom-[55%]'; // Top half of the row
+                          } else {
+                            topOffset = 'top-[45%]'; // Bottom half of the row
+                            bottomOffset = 'bottom-1';
+                          }
                         }
                         
                         return (
