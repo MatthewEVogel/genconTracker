@@ -960,30 +960,8 @@ export default function EventsPage() {
                         </div>
                       )}
 
-                      {/* Add/Remove Event Button and Tracking Button */}
+                      {/* Add/Remove Event Button */}
                       <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                        {/* Event Recipient Dropdown - Only show when not already in schedule */}
-                        {!isUserEvent && allUsers.length > 0 && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Event Recipient
-                            </label>
-                            <select
-                              value={selectedUserId}
-                              onChange={(e) => setSelectedUserId(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            >
-                              {allUsers.map((userOption) => (
-                                <option key={userOption.id} value={userOption.id}>
-                                  {userOption.firstName} {userOption.lastName} ({userOption.genConName})
-                                  {user && userOption.id === user.id ? ' - You' : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
                         {isUserEvent ? (
                           <button
                             onClick={() => handleRemoveEvent(event.id)}
@@ -997,29 +975,6 @@ export default function EventsPage() {
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium"
                           >
                             Add to Schedule
-                          </button>
-                        )}
-                        
-                        {/* Tracking Button */}
-                        {isTracked ? (
-                          <button
-                            onClick={() => handleUntrackEvent(event.id)}
-                            className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Stop Tracking Changes
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleTrackEvent(event.id)}
-                            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                            Track Changes
                           </button>
                         )}
 
@@ -1306,27 +1261,6 @@ export default function EventsPage() {
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {/* Event Recipient Dropdown */}
-              {!userEventIds.includes(selectedEvent.id) && (
-                <div className="pb-3 border-b border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Recipient
-                  </label>
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    {allUsers.map((userOption) => (
-                      <option key={userOption.id} value={userOption.id}>
-                        {userOption.firstName} {userOption.lastName} ({userOption.genConName})
-                        {user && userOption.id === user.id ? ' - You' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               {/* Add/Remove Event Button */}
               {userEventIds.includes(selectedEvent.id) ? (
                 <button
@@ -1349,35 +1283,6 @@ export default function EventsPage() {
                   Add to Schedule
                 </button>
               )}
-              
-              {/* Tracking Button */}
-              {(selectedEvent.isTracked || userTrackedEventIds.includes(selectedEvent.id)) ? (
-                <button
-                  onClick={() => {
-                    handleUntrackEvent(selectedEvent.id);
-                    handleCloseEventDetailModal();
-                  }}
-                  className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition text-sm font-medium flex items-center justify-center"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Stop Tracking Changes
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    handleTrackEvent(selectedEvent.id);
-                    handleCloseEventDetailModal();
-                  }}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium flex items-center justify-center"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-2.197m0 0v1M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  Track Changes
-                </button>
-              )}
 
               {/* Admin Edit Button */}
               {isAdmin && (
@@ -1394,14 +1299,6 @@ export default function EventsPage() {
                   Edit Event
                 </button>
               )}
-
-              {/* Close Button */}
-              <button
-                onClick={handleCloseEventDetailModal}
-                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition text-sm font-medium"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
