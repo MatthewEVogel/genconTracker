@@ -520,6 +520,9 @@ export default function Timeline({
   const currentUserGenConEvents = currentUserData ? filterEventsByDay(currentUserData.events) : [];
   const currentUserEvents = [...currentUserGenConEvents, ...personalEventsAsScheduleEvents];
 
+  // Create a map of each user's complete event list for conflict checking
+  const userEventMap = new Map<string, ScheduleEvent[]>();
+
   // Create enhanced schedule data that includes personal events for ALL users where they are attendees
   const enhancedScheduleData = scheduleData.map(user => {
     // Get personal events where this user is either creator or attendee
@@ -551,9 +554,14 @@ export default function Timeline({
         isPersonalEvent: true
       }));
 
+    const completeEventList = [...user.events, ...userPersonalEvents];
+    
+    // Store this user's complete event list for conflict checking
+    userEventMap.set(user.id, completeEventList);
+    
     return {
       ...user,
-      events: [...user.events, ...userPersonalEvents]
+      events: completeEventList
     };
   });
 
@@ -649,7 +657,8 @@ export default function Timeline({
                       if (!startTime || !endTime) return null;
                       
                       const position = getEventPosition(startTime, endTime, selectedDay, isMobile);
-                      const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
+                      const userCompleteEvents = userEventMap.get(user.id) || [];
+                      const conflicts = checkConflicts(userCompleteEvents, event);
                       const hasConflict = conflicts.length > 0;
                       const isUserEvent = userEventIds.includes(event.id);
                       const isPersonalEvent = event.id.startsWith('personal-');
@@ -792,7 +801,8 @@ export default function Timeline({
                         if (!startTime || !endTime) return null;
                         
                         const position = getEventPosition(startTime, endTime, selectedDay, isMobile);
-                        const conflicts = isCurrentUser ? checkConflicts(currentUserEvents, event) : [];
+                        const userCompleteEvents = userEventMap.get(user.id) || [];
+                        const conflicts = checkConflicts(userCompleteEvents, event);
                         const hasConflict = conflicts.length > 0;
                         const isUserEvent = userEventIds.includes(event.id);
                         const isPersonalEvent = event.id.startsWith('personal-');
