@@ -335,6 +335,59 @@ export default function Timeline({
     }
   };
 
+  // Handle joining a personal event
+  const handleJoinPersonalEvent = async (eventId: string) => {
+    try {
+      const response = await personalEventService.joinPersonalEvent(eventId, currentUser.id);
+      
+      if (response.conflicts && response.conflicts.length > 0) {
+        // Show conflict warning
+        alert(`Warning: This event conflicts with other events in your schedule:\n${response.conflicts.map(c => c.userName).join(', ')}`);
+      }
+      
+      if (response.personalEvent) {
+        // Update the personal events list
+        setPersonalEvents(prev => 
+          prev.map(event => event.id === eventId ? response.personalEvent : event)
+        );
+        setAllPersonalEvents(prev => 
+          prev.map(event => event.id === eventId ? response.personalEvent : event)
+        );
+        setSelectedEvent(null);
+      }
+    } catch (error) {
+      console.error('Failed to join personal event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to join event. Please try again.');
+    }
+  };
+
+  // Handle leaving a personal event
+  const handleLeavePersonalEvent = async (eventId: string) => {
+    try {
+      await personalEventService.leavePersonalEvent(eventId, currentUser.id);
+      
+      // Update the personal events list
+      setPersonalEvents(prev => 
+        prev.map(event => 
+          event.id === eventId 
+            ? { ...event, attendees: event.attendees.filter(id => id !== currentUser.id) }
+            : event
+        )
+      );
+      setAllPersonalEvents(prev => 
+        prev.map(event => 
+          event.id === eventId 
+            ? { ...event, attendees: event.attendees.filter(id => id !== currentUser.id) }
+            : event
+        )
+      );
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Failed to leave personal event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to leave event. Please try again.');
+    }
+  };
+
   // Handle clicking on timeline to create personal event
   const handleTimelineClick = (event: React.MouseEvent, dayDate: Date) => {
     // Only handle clicks on the current user's row and only if not clicking on an event
@@ -812,31 +865,65 @@ export default function Timeline({
             <div className="space-y-3">
               {selectedEvent.isPersonalEvent ? (
                 // Personal event actions
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleEditPersonalEvent(selectedEvent)}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                  >
-                    Edit Event
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to delete this event?')) {
-                        const personalEventId = selectedEvent.id.replace('personal-', '');
-                        handleDeletePersonalEvent(personalEventId);
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                  >
-                    Delete Event
-                  </button>
-                  <button
-                    onClick={() => setSelectedEvent(null)}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
-                  >
-                    Close
-                  </button>
-                </div>
+                (() => {
+                  const personalEventId = selectedEvent.id.replace('personal-', '');
+                  const personalEvent = personalEvents.find(pe => pe.id === personalEventId);
+                  const isCreator = personalEvent?.createdBy === currentUser.id;
+                  const isAttendee = personalEvent?.attendees.includes(currentUser.id);
+
+                  return (
+                    <>
+                      {isCreator ? (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleEditPersonalEvent(selectedEvent)}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                          >
+                            Edit Event
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this event?')) {
+                                handleDeletePersonalEvent(personalEventId);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                          >
+                            Delete Event
+                          </button>
+                        </div>
+                      ) : isAttendee ? (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to leave this event?')) {
+                                handleLeavePersonalEvent(personalEventId);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition"
+                          >
+                            Leave Event
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleJoinPersonalEvent(personalEventId)}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                          >
+                            Join Event
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setSelectedEvent(null)}
+                        className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                      >
+                        Close
+                      </button>
+                    </>
+                  );
+                })()
               ) : (
                 // GenCon event actions
                 <div className="flex space-x-3">
