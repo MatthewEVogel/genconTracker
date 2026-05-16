@@ -750,6 +750,24 @@ export default function PersonalSchedule({
               </>
             ) : (
               <div className="space-y-3 mb-6">
+                {/* Event ID with GenCon Link */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
+                    {selectedEvent.id}
+                  </span>
+                  <a
+                    href={`https://www.gencon.com/events/${selectedEvent.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View on GenCon
+                  </a>
+                </div>
+
                 <div>
                   <span className="font-medium text-gray-700">Time: </span>
                   <span className="text-gray-600">
@@ -780,6 +798,16 @@ export default function PersonalSchedule({
                   <div>
                     <span className="font-medium text-gray-700">Cost: </span>
                     <span className="text-gray-600">${selectedEvent.cost}</span>
+                  </div>
+                )}
+
+                {/* Capacity */}
+                {selectedEvent.ticketsAvailable !== null && selectedEvent.ticketsAvailable !== undefined && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-1">🎫 Capacity:</h4>
+                    <p className="text-blue-600 font-medium">
+                      {selectedEvent.ticketsAvailable} tickets maximum
+                    </p>
                   </div>
                 )}
               </div>
