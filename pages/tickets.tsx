@@ -202,7 +202,6 @@ export default function TicketsPage() {
                                       <a
                                         href={getGenConEventUrl(event.eventId)!}
                                         target="gencon-event"
-                                        rel="noopener"
                                         className="px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition text-sm font-medium border border-blue-300"
                                         title="View on GenCon"
                                       >
@@ -248,7 +247,6 @@ export default function TicketsPage() {
                                       <a
                                         href={getGenConEventUrl(event.eventId)!}
                                         target="gencon-event"
-                                        rel="noopener"
                                         className="px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition text-sm font-medium border border-blue-300"
                                         title="View on GenCon"
                                       >
@@ -294,7 +292,6 @@ export default function TicketsPage() {
                                       <a
                                         href={getGenConEventUrl(event.eventId)!}
                                         target="gencon-event"
-                                        rel="noopener"
                                         className="px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition text-sm font-medium border border-blue-300"
                                         title="View on GenCon"
                                       >
