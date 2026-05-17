@@ -19,6 +19,7 @@ interface RefundedTicketInfo {
 
 interface RefundAnalysisResult {
   recipient: string;
+  purchaser: string;
   needsRefund: RefundCandidateTicket[];
   alreadyRefunded: RefundedTicketInfo[];
   totalTickets: number;
@@ -208,7 +209,7 @@ export default function Refunds() {
                         {expandedRecipients.has(analysis.recipient) ? '📂' : '📁'}
                       </span>
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900">{analysis.recipient}</h3>
+                        <h3 className="text-lg font-medium text-gray-900">{analysis.purchaser}</h3>
                         <p className="text-sm text-gray-600">
                           {analysis.ticketsToRefund} ticket{analysis.ticketsToRefund !== 1 ? 's' : ''} needing refund
                           {analysis.alreadyRefunded.length > 0 && (
@@ -266,7 +267,7 @@ export default function Refunds() {
                                 Event ID: {ticket.eventId}
                               </p>
                               <p className="text-sm text-gray-600">
-                                Purchased by: {ticket.purchaser}
+                                Ticket for: {ticket.recipient}
                               </p>
                               <p className="text-xs text-gray-500">
                                 Ticket ID: {ticket.id}

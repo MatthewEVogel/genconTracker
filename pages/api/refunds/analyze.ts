@@ -5,6 +5,7 @@ import { PurchasedEvent } from '@/lib/services/server/refundService';
 
 export interface RefundAnalysisResult {
   recipient: string;
+  purchaser: string;
   needsRefund: RefundCandidateTicket[];
   alreadyRefunded: RefundedTicketInfo[];
   totalTickets: number;
@@ -94,6 +95,7 @@ export default async function handler(
       // Process each recipient's duplicates
       for (const [normalizedRecipient, recipientDuplicates] of duplicatesByRecipient) {
         const originalRecipient = recipientDuplicates[0].recipient; // Use original case
+        const originalPurchaser = recipientDuplicates[0].duplicateTickets[0].purchaser; // Get purchaser from first ticket
         const recipientRefundMap = refundedMap.get(normalizedRecipient) || new Map();
         
         const needsRefund: RefundCandidateTicket[] = [];
@@ -137,6 +139,7 @@ export default async function handler(
         if (needsRefund.length > 0) {
           refundAnalysisResults.push({
             recipient: originalRecipient,
+            purchaser: originalPurchaser,
             needsRefund,
             alreadyRefunded,
             totalTickets,
