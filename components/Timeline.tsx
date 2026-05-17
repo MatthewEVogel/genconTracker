@@ -220,6 +220,7 @@ export default function Timeline({
         }
       } else {
         setFullEventDetails(null);
+        setEventPriority(1); // Reset priority when modal closes to prevent stale values
       }
     };
 
