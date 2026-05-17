@@ -1187,6 +1187,7 @@ export default function EventsPage() {
       {/* Event Edit Modal */}
       {editingEvent && (
         <EventEditModal
+          key={editingEvent.id}
           event={{
             ...editingEvent,
             _count: {

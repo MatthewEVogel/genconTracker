@@ -1264,6 +1264,7 @@ export default function AdminPage() {
 
         {/* Event Edit Modal */}
         <EventEditModal
+          key={selectedEvent?.id}
           event={selectedEvent}
           isOpen={showEventModal}
           onClose={() => {
