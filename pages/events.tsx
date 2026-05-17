@@ -108,6 +108,8 @@ export default function EventsPage() {
   // Event detail modal
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
+  const [groupedEventData, setGroupedEventData] = useState<{ title: string; instances: any[] } | null>(null);
+  const [selectedInstanceIndex, setSelectedInstanceIndex] = useState(0);
 
   // Use mobile detection hook
   const isMobile = useIsMobile();
@@ -256,6 +258,8 @@ export default function EventsPage() {
   const handleCloseEventDetailModal = () => {
     setSelectedEvent(null);
     setIsEventDetailModalOpen(false);
+    setGroupedEventData(null);
+    setSelectedInstanceIndex(0);
     // Reset selected user to current user
     if (user) {
       setSelectedUserId(user.id);
@@ -816,9 +820,28 @@ export default function EventsPage() {
                     onUserChange={setSelectedUserId}
                     onAddEvent={handleAddEvent}
                     onEventClick={(instanceId, e) => {
-                      // Find the instance in the grouped event
-                      const instance = groupedEvent.instances.find(inst => inst.id === instanceId);
+                      // Find the clicked instance
+                      const instanceIndex = groupedEvent.instances.findIndex(inst => inst.id === instanceId);
+                      const instance = groupedEvent.instances[instanceIndex];
+                      
                       if (instance) {
+                        // Store the grouped event data for the modal
+                        setGroupedEventData({
+                          title: groupedEvent.title,
+                          instances: groupedEvent.instances.map(inst => ({
+                            ...inst,
+                            title: groupedEvent.title,
+                            shortDescription: groupedEvent.shortDescription,
+                            eventType: groupedEvent.eventType,
+                            gameSystem: groupedEvent.gameSystem,
+                            ageRequired: groupedEvent.ageRequired,
+                            experienceRequired: groupedEvent.experienceRequired,
+                            materialsRequired: groupedEvent.materialsRequired,
+                            cost: groupedEvent.cost,
+                          }))
+                        });
+                        setSelectedInstanceIndex(instanceIndex);
+                        
                         // Convert the instance to an Event object for the modal
                         const eventForModal: Event = {
                           id: instance.id,
@@ -1251,6 +1274,54 @@ export default function EventsPage() {
                 ✕
               </button>
             </div>
+
+            {/* Instance Selector for Grouped Events */}
+            {groupedEventData && groupedEventData.instances.length > 1 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Time/Date ({groupedEventData.instances.length} sessions available):
+                </label>
+                <select
+                  value={selectedInstanceIndex}
+                  onChange={(e) => {
+                    const newIndex = parseInt(e.target.value);
+                    setSelectedInstanceIndex(newIndex);
+                    const newInstance = groupedEventData.instances[newIndex];
+                    
+                    // Update the selected event with the new instance data
+                    const updatedEvent: Event = {
+                      id: newInstance.id,
+                      title: newInstance.title,
+                      shortDescription: newInstance.shortDescription ?? undefined,
+                      eventType: newInstance.eventType ?? undefined,
+                      gameSystem: newInstance.gameSystem ?? undefined,
+                      ageRequired: newInstance.ageRequired ?? undefined,
+                      experienceRequired: newInstance.experienceRequired ?? undefined,
+                      materialsRequired: newInstance.materialsRequired ?? undefined,
+                      startDateTime: newInstance.startDateTime ?? undefined,
+                      duration: newInstance.duration ?? undefined,
+                      location: newInstance.location ?? undefined,
+                      cost: newInstance.cost ?? undefined,
+                      ticketsAvailable: newInstance.ticketsAvailable ?? undefined,
+                      isCanceled: newInstance.isCanceled,
+                      isTracked: false,
+                    };
+                    setSelectedEvent(updatedEvent);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  {groupedEventData.instances.map((instance, index) => {
+                    const isUserEvent = userEventIds.includes(instance.id);
+                    const status = instance.isCanceled ? '🚫 CANCELED' : isUserEvent ? '✓ In Schedule' : '📅 Available';
+                    return (
+                      <option key={instance.id} value={index}>
+                        {formatDateTime(instance.startDateTime)} - {status}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
 
             {/* Canceled Event Banner */}
             {selectedEvent.isCanceled && (
