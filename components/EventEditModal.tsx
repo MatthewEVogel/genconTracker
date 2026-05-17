@@ -43,7 +43,7 @@ export default function EventEditModal({
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (event) {
+    if (isOpen && event) {
       setFormData({
         title: event.title || '',
         shortDescription: event.shortDescription || '',
@@ -62,7 +62,7 @@ export default function EventEditModal({
       });
       setHasChanges(false);
     }
-  }, [event]);
+  }, [event, isOpen]);
 
   // Handle escape key press to close modal
   useEffect(() => {
