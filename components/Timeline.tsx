@@ -207,6 +207,8 @@ export default function Timeline({
   useEffect(() => {
     const fetchEventDetails = async () => {
       if (selectedEvent && !selectedEvent.isPersonalEvent) {
+        // Reset priority to default immediately when event changes to prevent showing stale values
+        setEventPriority(1);
         setLoadingEventDetails(true);
         try {
           const eventDetails = await EventService.getEventById(selectedEvent.id);
