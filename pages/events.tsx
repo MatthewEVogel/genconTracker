@@ -815,6 +815,31 @@ export default function EventsPage() {
                     selectedUserId={selectedUserId}
                     onUserChange={setSelectedUserId}
                     onAddEvent={handleAddEvent}
+                    onEventClick={(instanceId, e) => {
+                      // Find the instance in the grouped event
+                      const instance = groupedEvent.instances.find(inst => inst.id === instanceId);
+                      if (instance) {
+                        // Convert the instance to an Event object for the modal
+                        const eventForModal: Event = {
+                          id: instance.id,
+                          title: groupedEvent.title,
+                          shortDescription: groupedEvent.shortDescription ?? undefined,
+                          eventType: groupedEvent.eventType ?? undefined,
+                          gameSystem: groupedEvent.gameSystem ?? undefined,
+                          ageRequired: groupedEvent.ageRequired ?? undefined,
+                          experienceRequired: groupedEvent.experienceRequired ?? undefined,
+                          materialsRequired: groupedEvent.materialsRequired ?? undefined,
+                          startDateTime: instance.startDateTime ?? undefined,
+                          duration: instance.duration ?? undefined,
+                          location: instance.location ?? undefined,
+                          cost: groupedEvent.cost ?? undefined,
+                          ticketsAvailable: instance.ticketsAvailable ?? undefined,
+                          isCanceled: instance.isCanceled,
+                          isTracked: false, // Tracked state not available in grouped view
+                        };
+                        handleEventClick(eventForModal, e);
+                      }
+                    }}
                     isAdmin={isAdmin}
                   />
                 ))}

@@ -9,6 +9,7 @@ interface GroupedEventCardProps {
   selectedUserId: string;
   onUserChange: (userId: string) => void;
   onAddEvent: (eventId: string) => void;
+  onEventClick?: (instanceId: string, e: React.MouseEvent) => void;
   isAdmin?: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function GroupedEventCard({
   selectedUserId,
   onUserChange,
   onAddEvent,
+  onEventClick,
   isAdmin = false
 }: GroupedEventCardProps) {
   const [showInstanceSelector, setShowInstanceSelector] = useState(false);
@@ -43,6 +45,20 @@ export default function GroupedEventCard({
     onAddEvent(instanceId);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent card click when clicking on buttons or interactive elements
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
+    // Find the first available instance to show details for
+    const representativeInstance = event.instances.find(inst => !inst.isCanceled) || event.instances[0];
+    
+    if (onEventClick && representativeInstance) {
+      onEventClick(representativeInstance.id, e);
+    }
+  };
+
   // Check if user has any instance of this event
   const userHasAnyInstance = event.instances.some(inst => inst.isUserEvent);
   
@@ -52,9 +68,12 @@ export default function GroupedEventCard({
 
   return (
     <>
-      <div className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow bg-white ${
-        isAdmin ? 'border-l-4 border-l-purple-500' : ''
-      }`}>
+      <div 
+        className={`rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow bg-white cursor-pointer ${
+          isAdmin ? 'border-l-4 border-l-purple-500' : ''
+        }`}
+        onClick={handleCardClick}
+      >
         {/* Header */}
         <div className="mb-4">
           <div className="flex items-start justify-between gap-4 mb-2">
