@@ -61,6 +61,9 @@ export default function EventEditModal({
         isCanceled: event.isCanceled || false,
       });
       setHasChanges(false);
+    } else if (!isOpen) {
+      // Reset formData when modal closes to prevent stale values
+      setFormData({});
     }
   }, [event, isOpen]);
 
