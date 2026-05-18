@@ -53,6 +53,8 @@ export interface RemoveEventResponse {
   message: string;
 }
 
+export type ScheduleFilter = 'wishlist' | 'purchased';
+
 export class ScheduleService {
   /**
    * Helper to convert Date or string to ISO string
@@ -64,7 +66,7 @@ export class ScheduleService {
   }
 
   // Get schedule data for all users
-  static async getScheduleData(): Promise<ScheduleResponse> {
+  static async getScheduleData(filter: ScheduleFilter = 'wishlist'): Promise<ScheduleResponse> {
     const users = await prisma.userList.findMany({
       include: {
         desiredEvents: {
@@ -98,12 +100,72 @@ export class ScheduleService {
     // Create a map for quick event lookup
     const eventsMap = new Map(eventsData.map(event => [event.id, event]));
 
-    const scheduleData = this.transformUsersToScheduleData(users, activePurchasedEvents, eventsMap);
+    const scheduleData = this.transformUsersToScheduleData(users, activePurchasedEvents, eventsMap, filter);
     return { scheduleData };
   }
 
   // Get events for a specific user
-  static async getUserEvents(userId: string): Promise<UserEventResponse> {
+  static async getUserEvents(userId: string, filter: ScheduleFilter = 'wishlist'): Promise<UserEventResponse> {
+    if (filter === 'purchased') {
+      // Get the user's genConName for matching purchased events
+      const user = await prisma.userList.findUnique({
+        where: { id: userId },
+        select: { genConName: true }
+      });
+
+      if (!user) {
+        return { userEvents: [] };
+      }
+
+      // Get purchased events for this user (excluding refunded ones)
+      const purchasedEvents = await prisma.purchasedEvents.findMany({
+        where: {
+          recipient: {
+            equals: user.genConName,
+            mode: 'insensitive'
+          }
+        },
+        include: {
+          refundedEvents: true
+        }
+      });
+
+      // Filter out refunded events
+      const activePurchasedEvents = purchasedEvents.filter(
+        purchased => purchased.refundedEvents.length === 0
+      );
+
+      // Get event details
+      const eventIds = activePurchasedEvents.map(pe => pe.eventId);
+      const eventsData = await prisma.eventsList.findMany({
+        where: {
+          id: { in: eventIds }
+        },
+        select: {
+          id: true,
+          title: true,
+          startDateTime: true,
+          endDateTime: true,
+          eventType: true,
+          location: true,
+          cost: true,
+          ticketsAvailable: true,
+        }
+      });
+
+      // Transform to match expected format
+      const userEvents = eventsData.map(event => ({
+        event: {
+          ...event,
+          startDateTime: this.toISOString(event.startDateTime),
+          endDateTime: this.toISOString(event.endDateTime)
+        }
+      }));
+
+      return { userEvents };
+    }
+
+    // Default: wishlist mode - only show desired events
     const desiredEvents = await prisma.desiredEvents.findMany({
       where: { userId },
       include: {
@@ -210,24 +272,37 @@ export class ScheduleService {
   private static transformUsersToScheduleData(
     users: any[], 
     activePurchasedEvents: any[], 
-    eventsMap: Map<string, any>
+    eventsMap: Map<string, any>,
+    filter: ScheduleFilter = 'wishlist'
   ): ScheduleUser[] {
-    // Start with existing users and their desired events
-    const scheduleUsers: ScheduleUser[] = users.map(user => ({
-      id: user.id,
-      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
-      events: user.desiredEvents.map((desiredEvent: any) => ({
-        id: desiredEvent.eventsList.id,
-        title: desiredEvent.eventsList.title,
-        startDateTime: this.toISOString(desiredEvent.eventsList.startDateTime),
-        endDateTime: this.toISOString(desiredEvent.eventsList.endDateTime),
-        eventType: desiredEvent.eventsList.eventType,
-        location: desiredEvent.eventsList.location,
-        cost: desiredEvent.eventsList.cost,
-        ticketsAvailable: desiredEvent.eventsList.ticketsAvailable,
-        shortDescription: desiredEvent.eventsList.shortDescription
-      }))
-    }));
+    // Start with existing users
+    let scheduleUsers: ScheduleUser[];
+
+    if (filter === 'purchased') {
+      // For purchased mode, start with empty events
+      scheduleUsers = users.map(user => ({
+        id: user.id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
+        events: []
+      }));
+    } else {
+      // For wishlist mode, show desired events
+      scheduleUsers = users.map(user => ({
+        id: user.id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
+        events: user.desiredEvents.map((desiredEvent: any) => ({
+          id: desiredEvent.eventsList.id,
+          title: desiredEvent.eventsList.title,
+          startDateTime: this.toISOString(desiredEvent.eventsList.startDateTime),
+          endDateTime: this.toISOString(desiredEvent.eventsList.endDateTime),
+          eventType: desiredEvent.eventsList.eventType,
+          location: desiredEvent.eventsList.location,
+          cost: desiredEvent.eventsList.cost,
+          ticketsAvailable: desiredEvent.eventsList.ticketsAvailable,
+          shortDescription: desiredEvent.eventsList.shortDescription
+        }))
+      }));
+    }
 
     // Create a map of users by their genConName for quick lookup
     const usersByGenConName = new Map<string, ScheduleUser>();
@@ -274,18 +349,24 @@ export class ScheduleService {
       const purchasedScheduleEvents = Array.from(purchasedScheduleEventsMap.values());
 
       if (matchingUser) {
-        // Add purchased events to existing user's schedule, but avoid duplicates
-        const existingEventIds = new Set(matchingUser.events.map(e => e.id));
-        const newPurchasedEvents = purchasedScheduleEvents.filter(e => !existingEventIds.has(e.id));
-        matchingUser.events.push(...newPurchasedEvents);
+        // Add purchased events to existing user's schedule
+        if (filter === 'purchased') {
+          // In purchased mode, only show purchased events
+          matchingUser.events.push(...purchasedScheduleEvents);
+        } else {
+          // In wishlist mode, skip purchased events entirely
+          // (we only want to show desired events)
+        }
       } else {
-        // Create new user row for purchased events with no matching genConName
-        const originalRecipientName = purchasedEvents[0]?.recipient || recipientName;
-        scheduleUsers.push({
-          id: `purchased-${recipientName}`, // Use a unique ID for purchased-only users
-          name: `${originalRecipientName} (👻)`,
-          events: purchasedScheduleEvents
-        });
+        // Create new user row for purchased events with no matching genConName (only in purchased mode)
+        if (filter === 'purchased') {
+          const originalRecipientName = purchasedEvents[0]?.recipient || recipientName;
+          scheduleUsers.push({
+            id: `purchased-${recipientName}`, // Use a unique ID for purchased-only users
+            name: `${originalRecipientName} (👻)`,
+            events: purchasedScheduleEvents
+          });
+        }
       }
     }
 

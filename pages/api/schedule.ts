@@ -1,10 +1,17 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { ScheduleService } from '@/lib/services/server/scheduleService';
+import { ScheduleService, ScheduleFilter } from '@/lib/services/server/scheduleService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const result = await ScheduleService.getScheduleData();
+      const filter = (req.query.filter as ScheduleFilter) || 'wishlist';
+      
+      // Validate filter parameter
+      if (filter !== 'wishlist' && filter !== 'purchased') {
+        return res.status(400).json({ error: 'Invalid filter parameter. Must be "wishlist" or "purchased"' });
+      }
+      
+      const result = await ScheduleService.getScheduleData(filter);
       return res.status(200).json(result);
     } catch (error) {
       console.error('Error fetching schedule data:', error);

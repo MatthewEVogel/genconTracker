@@ -6,7 +6,7 @@ import Timeline from "@/components/Timeline";
 import PersonalSchedule from "@/components/PersonalSchedule";
 import CountdownTimer from "@/components/CountdownTimer";
 import Navigation from "@/components/Navigation";
-import { ScheduleService, ScheduleUser, ScheduleEvent } from "@/lib/services/client/scheduleService";
+import { ScheduleService, ScheduleUser, ScheduleEvent, ScheduleFilter } from "@/lib/services/client/scheduleService";
 import { RegistrationTimerService } from "@/lib/services/client/registrationTimerService";
 import { EventService } from "@/lib/services/client/eventService";
 import { useCustomAlerts } from "@/hooks/useCustomAlerts";
@@ -24,6 +24,7 @@ export default function SchedulePage() {
   const [userTrackedEventIds, setUserTrackedEventIds] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState('Thursday');
   const [viewMode, setViewMode] = useState<ViewMode>('group');
+  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('wishlist');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [conflictModal, setConflictModal] = useState<{
@@ -61,11 +62,11 @@ export default function SchedulePage() {
     fetchUserEvents();
     fetchTrackedEvents();
     fetchRegistrationTimer();
-  }, [user, router]);
+  }, [user, router, scheduleFilter]);
 
   const fetchScheduleData = async () => {
     try {
-      const data = await ScheduleService.getScheduleData();
+      const data = await ScheduleService.getScheduleData(scheduleFilter);
       setScheduleData(data.scheduleData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -76,7 +77,7 @@ export default function SchedulePage() {
     if (!user) return;
     
     try {
-      const data = await ScheduleService.getUserEvents(user.id);
+      const data = await ScheduleService.getUserEvents(user.id, scheduleFilter);
       setUserEventIds(data.userEvents.map((ue: any) => ue.event.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -284,6 +285,32 @@ export default function SchedulePage() {
             </button>
           </div>
         )}
+
+        {/* Schedule Filter Toggle */}
+        <div className="mb-4 flex justify-center">
+          <div className="bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setScheduleFilter('wishlist')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                scheduleFilter === 'wishlist'
+                  ? 'bg-white text-purple-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Wishlist
+            </button>
+            <button
+              onClick={() => setScheduleFilter('purchased')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                scheduleFilter === 'purchased'
+                  ? 'bg-white text-green-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Purchased Events
+            </button>
+          </div>
+        </div>
 
         {/* View Mode Toggle */}
         <div className="mb-6 flex justify-center">

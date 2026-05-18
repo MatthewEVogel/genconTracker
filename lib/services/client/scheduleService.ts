@@ -84,10 +84,12 @@ export interface UserListResponse {
   users: User[];
 }
 
+export type ScheduleFilter = 'wishlist' | 'purchased';
+
 export class ScheduleService {
   // Get schedule data for all users
-  static async getScheduleData(): Promise<ScheduleResponse> {
-    const response = await fetch('/api/schedule');
+  static async getScheduleData(filter: ScheduleFilter = 'wishlist'): Promise<ScheduleResponse> {
+    const response = await fetch(`/api/schedule?filter=${filter}`);
     const data = await response.json();
     
     if (!response.ok) {
@@ -98,8 +100,8 @@ export class ScheduleService {
   }
 
   // Get events for a specific user
-  static async getUserEvents(userId: string): Promise<UserEventResponse> {
-    const response = await fetch(`/api/user-events?userId=${userId}`);
+  static async getUserEvents(userId: string, filter: ScheduleFilter = 'wishlist'): Promise<UserEventResponse> {
+    const response = await fetch(`/api/user-events?userId=${userId}&filter=${filter}`);
     const data = await response.json();
     
     if (!response.ok) {

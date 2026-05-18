@@ -1,44 +1,28 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
 import { ConflictDetectionService } from '@/lib/services/server/conflictDetectionService';
+import { ScheduleService, ScheduleFilter } from '@/lib/services/server/scheduleService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const { userId } = req.query;
+      const { userId, filter } = req.query;
 
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      // Get user's desired events
-      const userEvents = await prisma.desiredEvents.findMany({
-        where: { userId },
-        include: {
-          eventsList: true
-        },
-        orderBy: {
-          eventsList: {
-            startDateTime: 'asc'
-          }
-        }
-      });
+      const scheduleFilter = (filter as ScheduleFilter) || 'wishlist';
+      
+      // Validate filter parameter
+      if (scheduleFilter !== 'wishlist' && scheduleFilter !== 'purchased') {
+        return res.status(400).json({ error: 'Invalid filter parameter. Must be "wishlist" or "purchased"' });
+      }
 
-      // Transform to match expected format
-      const transformedEvents = userEvents.map(de => ({
-        event: {
-          id: de.eventsList.id,
-          title: de.eventsList.title,
-          startDateTime: de.eventsList.startDateTime,
-          endDateTime: de.eventsList.endDateTime,
-          eventType: de.eventsList.eventType,
-          location: de.eventsList.location,
-          cost: de.eventsList.cost,
-          ticketsAvailable: de.eventsList.ticketsAvailable
-        }
-      }));
+      // Use ScheduleService to get user events with filter
+      const result = await ScheduleService.getUserEvents(userId, scheduleFilter);
 
-      return res.status(200).json({ userEvents: transformedEvents });
+      return res.status(200).json(result);
     } catch (error) {
       console.error('Error fetching user events:', error);
       return res.status(500).json({ error: 'Failed to fetch user events' });
